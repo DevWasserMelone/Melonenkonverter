@@ -119,8 +119,15 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
 #ctx{position:fixed;display:none;z-index:210;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px;min-width:190px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
 #ctx div{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:12.5px}
 #ctx div:hover{background:rgba(70,181,98,.15)} #ctx div.dis{opacity:.4;pointer-events:none} #ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
-#help{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
-#help.on{display:flex}
+#help,#blGuide{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
+#help.on,#blGuide.on{display:flex}
+.hbox.guide{width:480px;max-height:90vh;overflow:auto}
+.guide .lead{color:var(--dim);margin:0 0 10px;font-size:12.5px}
+.guide .step{display:flex;gap:10px;margin:10px 0;font-size:12.5px;line-height:1.5}
+.guide .n{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(70,181,98,.18);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.guide .hint{color:var(--dim);font-size:11.5px;margin-top:3px}
+.guide .step .btn{margin-top:6px}
+.guide .saved{font-size:11.5px;color:var(--green);margin-top:5px;word-break:break-all}
 .hbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:380px}
 .hbox h2{margin:0 0 10px;font-size:15px} .hbox table{border-collapse:collapse;margin-bottom:12px} .hbox td{padding:4px 14px 4px 0;font-size:12.5px} .hbox td:first-child{color:var(--green);white-space:nowrap}
 .btn.blend{border-color:#e87d0d;color:#ffb15c} .btn.blend:hover{background:rgba(232,125,13,.15)}
@@ -134,6 +141,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
   <h1 class="glitch">Melonenkonverter</h1><span class="ver" id="ver">–</span>
   <div class="sp"></div>
   <div class="snowridge" style="position:absolute;left:0;right:0;bottom:-10px;z-index:5"></div>
+  <button class="btn blend" id="blHead" title="Blender einrichten" style="padding:4px 10px">🟧 Blender</button>
   <button class="btn" id="helpBtn" title="Tastenkürzel (F1)" style="padding:4px 10px">?</button>
   <div class="watch" title="Neue P3D-Dateien in diesem Ordner werden sofort umgewandelt"><span class="dot" id="wDot"></span><span id="wTxt">Ordner-Automatik aus</span></div>
 </header>
@@ -201,7 +209,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       </div>
 
       <h3>Blender</h3>
-      <button class="btn" id="addonBtn" style="width:100%">⬇ Blender-Add-on speichern</button>
+      <button class="btn blend" id="addonBtn" style="width:100%">🟧 Blender einrichten</button>
       <div class="path" id="bridgePath">Mit dem Add-on landen Modelle per „An Blender“ direkt mit Texturen in Blender.</div>
       <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
 
@@ -221,6 +229,19 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 </main>
 <div id="toasts"></div>
 <div id="ctx"></div>
+<div id="blGuide"><div class="hbox guide">
+<h2>🟧 Blender einrichten</h2>
+<p class="lead">Einmal einrichten – danach landet jedes Modell per <b>„An Blender“</b> direkt mit Texturen in Blender.</p>
+<div class="step"><span class="n">1</span><div><b>Add-on herunterladen</b><br><button class="btn main" id="gSave">⬇ Add-on herunterladen</button><div class="saved" id="gSaved"></div></div></div>
+<div class="step"><span class="n">2</span><div><b>Blender öffnen</b> und oben auf <b>Bearbeiten → Einstellungen</b> klicken.</div></div>
+<div class="step"><span class="n">3</span><div>Links auf <b>Add-ons</b>. Oben rechts auf den kleinen Pfeil <b>⌄</b> und <b>„Von Festplatte installieren …“</b> wählen.<div class="hint">Blender 4.1 oder älter: oben direkt auf <b>„Installieren …“</b> klicken.</div></div></div>
+<div class="step"><span class="n">4</span><div>Die Datei <b>melonenkonverter_blender.py</b> auswählen (dort, wo du sie in Schritt 1 gespeichert hast).</div></div>
+<div class="step"><span class="n">5</span><div>Ins Suchfeld <b>„Melone“</b> tippen und bei <b>Melonenkonverter Bridge</b> den <b>Haken setzen</b>.</div></div>
+<div class="step"><span class="n">6</span><div>In der 3D-Ansicht <b>N</b> drücken. Rechts erscheint der Reiter <b>„Melone“</b>.</div></div>
+<div class="step"><span class="n">7</span><div>Hier im Konverter ein Modell wählen und auf <b>„An Blender“</b> klicken (oder <b>Strg + B</b>) – es erscheint automatisch in Blender.</div></div>
+<div class="hint" style="margin-top:6px">Add-on aktualisieren: altes Add-on in den Blender-Einstellungen entfernen, neu installieren und Blender neu starten.</div>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" id="gClose">Schließen</button><button class="btn main" id="gDone">Fertig eingerichtet</button></div>
+</div></div>
 <div id="help"><div class="hbox"><h2>Tastenkürzel</h2>
 <table>
 <tr><td>Strg + O</td><td>Dateien öffnen</td></tr>
@@ -1464,6 +1485,7 @@ async function bridgeRoot(){
 async function sendToBlender(f){
   if (!mk){ toast('„An Blender senden“ geht nur im Programm, nicht im Browser.','err'); return; }
   if (!f || !f.model){ toast('Wähle zuerst links ein Modell aus.','err'); return; }
+  if (!S.blSetup) openGuide();
   var root=await bridgeRoot(); if (!root) return;
   f.status='busy'; render(); hxBurst(2000); hxProgress('bridge '+f.name);
   try {
@@ -1482,12 +1504,14 @@ async function sendToBlender(f){
 async function saveAddon(){
   var name='melonenkonverter_blender.py';
   if (mk){
-    var d=await mk.pickFolder(); if (!d) return;
+    toast('Wähle den Ordner, in dem das Add-on gespeichert werden soll (z. B. Downloads).');
+    var d=await mk.pickFolder(); if (!d) return null;
     await mk.writeFiles(d,[{ name:name, data:ADDON_SRC }]);
-    toast('Add-on gespeichert. In Blender: Bearbeiten → Einstellungen → Add-ons → Installieren und die Datei wählen.','ok',9000);
     mk.openFolder(d);
+    return d+(d.indexOf('\\')>=0?'\\':'/')+name;
   } else {
     var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([ADDON_SRC],{type:'text/x-python'})); a.download=name; a.click();
+    return 'Download-Ordner deines Browsers';
   }
 }
 
@@ -1515,7 +1539,18 @@ $('convertAll').onclick = async function(){
   log((bad?'✗ ':'✓ ')+(todo.length-bad)+' von '+todo.length+' Datei(en) umgewandelt'+(bad?' · '+bad+' mit Fehler':''), bad?'err':'ok'); hx(todo.length+' Datei(en) fertig ✓');
 };
 $('toBlender').onclick = function(){ sendToBlender(selected); };
-$('addonBtn').onclick = saveAddon;
+function openGuide(){ $('gSaved').textContent=''; $('blGuide').classList.add('on'); }
+$('addonBtn').onclick = openGuide;
+$('blHead').onclick = openGuide;
+$('gClose').onclick = function(){ $('blGuide').classList.remove('on'); };
+$('gDone').onclick = function(){ S.blSetup=true; save(); $('blGuide').classList.remove('on'); toast('Blender ist eingerichtet. Mit „An Blender“ oder Strg + B schickst du Modelle rüber.','ok',5000); };
+$('blGuide').onclick = function(e){ if (e.target===this) this.classList.remove('on'); };
+$('gSave').onclick = async function(){
+  var b=this; b.disabled=true;
+  try { var where=await saveAddon(); if (where) $('gSaved').textContent='✓ Gespeichert: '+where; }
+  catch(e){ $('gSaved').textContent='Fehler: '+clean(e); }
+  b.disabled=false;
+};
 $('bridgePick').onclick = async function(){ var d=await mk.pickFolder(); if (d){ S.bridgeDir=d; save(); applyUI(); } };
 $('helpBtn').onclick = function(){ $('help').classList.add('on'); };
 $('helpClose').onclick = function(){ $('help').classList.remove('on'); };
@@ -1550,7 +1585,7 @@ function removeFile(f){
 // ---------- Tastenkürzel ----------
 window.addEventListener('keydown',function(e){
   if (e.key==='F1'){ e.preventDefault(); $('help').classList.toggle('on'); return; }
-  if (e.key==='Escape' && $('help').classList.contains('on')){ $('help').classList.remove('on'); return; }
+  if (e.key==='Escape' && ($('help').classList.contains('on')||$('blGuide').classList.contains('on'))){ $('help').classList.remove('on'); $('blGuide').classList.remove('on'); return; }
   if (tb.open || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   var k=e.key.toLowerCase();
   if (e.ctrlKey && k==='o'){ e.preventDefault(); drop.onclick(); }
