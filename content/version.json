@@ -1,5 +1,5 @@
 {
-  "version": "1.0.13",
+  "version": "1.0.14",
   "date": "2026-11-22",
-  "changelog": "📦 Melonenkonverter 1.0.13\n\n✨ Neu\n• OBJ-Dateien öffnen: Modell mit Texturen ansehen\n• Materialdatei (.mtl) und Texturen werden automatisch gefunden\n• Fehlende Texturen zuweisen und als neue OBJ speichern"
+  "changelog": "🔍 Melonenkonverter 1.0.14\n\n✨ Neu\n• Automatische Textursuche: findet passende Texturen auch bei anderem Namen\n• Textur-Browser: Teil anklicken und mit ← → durch alle Texturen blättern, live auf dem Modell\n• Texturordner hinzufügen und nach Namen filtern"
 }
