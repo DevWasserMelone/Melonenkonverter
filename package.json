@@ -1,0 +1,34 @@
+{
+  "name": "melonenkonverter",
+  "productName": "Melonenkonverter",
+  "version": "1.0.0",
+  "description": "Wandelt P3D-Modelle in OBJ-Dateien um",
+  "author": "DevWasserMelone",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron .",
+    "release": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "de.devwassermelone.melonenkonverter",
+    "productName": "Melonenkonverter",
+    "artifactName": "Melonenkonverter-Setup-${version}.${ext}",
+    "files": ["electron/**", "launcher/**", "app/**", "build/icon.png", "package.json"],
+    "directories": { "buildResources": "build", "output": "dist" },
+    "win": { "target": "nsis", "icon": "build/icon.png" },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Melonenkonverter"
+    },
+    "publish": [{ "provider": "github", "owner": "DevWasserMelone", "repo": "Melonenkonverter" }]
+  }
+}

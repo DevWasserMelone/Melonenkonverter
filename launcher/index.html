@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Melonenkonverter Launcher</title>
+<style>
+:root{--bg:#141619;--panel:#1c1f24;--panel2:#23272d;--line:#2e333a;--text:#e7e9ec;--dim:#8c939d;--green:#46b562;--red:#ef5b5b;--yellow:#e8b84a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.45 "Segoe UI",system-ui,sans-serif;user-select:none;overflow:hidden}
+button,input,textarea{font:inherit;color:inherit}
+.wrap{height:100%;display:flex;flex-direction:column;padding:26px 26px 18px}
+.top{display:flex;align-items:center;gap:14px}
+.top h1{margin:0;font-size:20px;font-weight:600}
+.top .sub{color:var(--dim);font-size:12px}
+.card{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.status{display:flex;align-items:center;gap:9px;font-size:13px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex:none}
+.dot.ok{background:var(--green)} .dot.up{background:var(--yellow)} .dot.err{background:var(--red)}
+.vers{display:flex;align-items:center;gap:18px;margin-top:12px;color:var(--dim);font-size:12px}
+.vers b{color:var(--text);font-weight:600}
+.log{margin-top:14px;flex:1;min-height:0;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;white-space:pre-wrap;font-size:12.5px;color:#c9cdd3;user-select:text}
+.log:empty::before{content:"Keine Neuigkeiten.";color:var(--dim)}
+.big{margin-top:16px;width:100%;height:48px;border:0;border-radius:8px;background:var(--green);color:#0d1a10;font-weight:700;font-size:15px;letter-spacing:.08em;cursor:pointer}
+.big:hover{background:#52c46e} .big:disabled{opacity:.5;cursor:default}
+.big.up{background:var(--yellow);color:#1f1806}
+.bar{height:4px;border-radius:2px;background:var(--panel2);margin-top:10px;overflow:hidden;display:none}
+.bar i{display:block;height:100%;width:0;background:var(--yellow);transition:width .2s}
+.prog{margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(232,184,74,.08);border:1px solid rgba(232,184,74,.3);display:none;align-items:center;gap:10px;font-size:12.5px}
+.prog span{flex:1}
+.btn{white-space:nowrap;border:1px solid var(--line);background:var(--panel2);padding:6px 12px;border-radius:6px;cursor:pointer}
+.btn:hover{border-color:#4a525d}
+.btn.g{background:var(--green);border-color:var(--green);color:#0d1a10;font-weight:600}
+.pubBtn{display:none;padding:3px 10px;font-size:12px;color:var(--text)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center}
+.modal.on{display:flex}
+.box{width:400px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.box h2{margin:0 0 12px;font-size:15px;font-weight:600}
+.box label{display:block;color:#c3c8ce;margin:10px 0 4px}
+.box input,.box textarea{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;outline:none}
+.box input:focus,.box textarea:focus{border-color:var(--green)}
+.box textarea{height:130px;resize:none}
+.box .hint{color:var(--dim);font-size:11.5px;margin-top:4px}
+.box .row{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.box .msg{font-size:12px;margin-top:10px;min-height:16px}
+.msg.err{color:var(--red)} .msg.ok{color:var(--green)}
+.file{display:flex;gap:8px;align-items:center}
+.file span{flex:1;color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <svg width="46" height="46" viewBox="0 0 24 24"><path d="M2 8a10 10 0 0 0 20 0z" fill="#46b562"/><path d="M4.2 8a7.8 7.8 0 0 0 15.6 0z" fill="#f2f0e6"/><path d="M5.3 8a6.7 6.7 0 0 0 13.4 0z" fill="#ef5b5b"/><circle cx="9" cy="10.5" r=".8" fill="#222"/><circle cx="12" cy="12.3" r=".8" fill="#222"/><circle cx="15" cy="10.5" r=".8" fill="#222"/></svg>
+    <div><h1>Melonenkonverter</h1><div class="sub">P3D zu OBJ</div></div>
+  </div>
+  <div class="card">
+    <div class="status"><span class="dot" id="dot"></span><span id="status">Suche nach Updates …</span></div>
+    <div class="vers"><span>Version <b id="vContent">–</b></span><span>Programm <b id="vProg">–</b></span><span style="flex:1"></span><button class="btn pubBtn" id="pubBtn">🚀 Update veröffentlichen</button></div>
+    <div class="bar" id="bar"><i></i></div>
+    <div class="prog" id="prog"><span id="progTxt"></span><button class="btn" id="progBtn"></button></div>
+  </div>
+  <div class="log" id="log"></div>
+  <button class="big" id="go" disabled>STARTEN</button>
+</div>
+
+<div class="modal" id="mSet"><div class="box">
+  <h2>Veröffentlichen einrichten</h2>
+  <label>Repository</label><input id="sRepo" placeholder="DevWasserMelone/Melonenkonverter">
+  <label>Token</label><input id="sTok" type="password" placeholder="github_pat_…">
+  <div class="hint" id="sHint"></div>
+  <div class="msg" id="sMsg"></div>
+  <div class="row"><button class="btn" id="sDel">Token entfernen</button><span style="flex:1"></span><button class="btn" id="sClose">Abbrechen</button><button class="btn g" id="sSave">Speichern</button></div>
+</div></div>
+
+<div class="modal" id="mPub"><div class="box">
+  <h2>Update veröffentlichen</h2>
+  <label>Neue Datei</label>
+  <div class="file"><span id="pFile">Keine Datei gewählt</span><button class="btn" id="pPick">Wählen …</button></div>
+  <label>Version</label><input id="pVer" placeholder="1.0.1">
+  <label>Was ist neu?</label><textarea id="pLog" placeholder="Steht später bei allen im Launcher"></textarea>
+  <div class="msg" id="pMsg"></div>
+  <div class="row"><button class="btn" id="pClose">Abbrechen</button><button class="btn g" id="pGo">Veröffentlichen</button></div>
+</div></div>
+
+<script>
+(function(){
+var L = window.launcher, $ = function(i){ return document.getElementById(i); };
+var state = { update:false, remote:null, info:null, file:null };
+
+function setStatus(t, cls){ $('status').textContent=t; $('dot').className='dot '+(cls||''); }
+function next(v){ var p=String(v||'1.0.0').split('.').map(Number); p[2]=(p[2]||0)+1; return p.join('.'); }
+function cmp(a,b){ var x=String(a).split('.').map(Number), y=String(b).split('.').map(Number); for(var i=0;i<3;i++){ var d=(x[i]||0)-(y[i]||0); if(d) return d>0?1:-1; } return 0; }
+
+async function refresh(){
+  state.info = await L.info();
+  $('vContent').textContent = state.info.content; $('vProg').textContent = state.info.program;
+  $('pubBtn').style.display = state.info.publisher ? 'block' : 'none';
+  $('go').disabled = true; setStatus('Suche nach Updates …');
+  try {
+    var r = await L.check();
+    state.update = r.update; state.remote = r.remote;
+    if (r.update){
+      setStatus('Update auf Version '+r.remote.version+' verfügbar', 'up');
+      $('go').textContent='UPDATEN'; $('go').classList.add('up');
+      $('log').textContent = r.remote.changelog || '';
+    } else {
+      setStatus('Du hast die neueste Version', 'ok');
+      $('go').textContent='STARTEN'; $('go').classList.remove('up');
+      $('log').textContent = r.remote ? (r.remote.changelog || '') : '';
+    }
+  } catch(e){
+    state.update=false;
+    setStatus('Keine Verbindung – startet mit Version '+state.info.content, 'err');
+    $('go').textContent='STARTEN'; $('go').classList.remove('up');
+  }
+  $('go').disabled = false;
+}
+
+$('go').onclick = async function(){
+  if (!state.update){ L.start(); return; }
+  $('go').disabled = true; $('go').textContent = 'LÄDT …';
+  var bar=$('bar'), i=bar.querySelector('i'); bar.style.display='block'; i.style.width='35%';
+  try {
+    var v = await L.update(); i.style.width='100%';
+    $('vContent').textContent = v; setStatus('Version '+v+' installiert', 'ok');
+    state.update=false; $('go').textContent='STARTEN'; $('go').classList.remove('up');
+  } catch(e){ setStatus('Update fehlgeschlagen: '+String(e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,''), 'err'); $('go').textContent='STARTEN'; state.update=false; }
+  setTimeout(function(){ bar.style.display='none'; i.style.width='0'; }, 600);
+  $('go').disabled = false;
+};
+
+// Programm-Updates (neue .exe)
+L.onProg(function(d){
+  var p=$('prog'), b=$('progBtn');
+  if (d.state==='available'){ p.style.display='flex'; $('progTxt').textContent='Neue Programmversion '+d.version; b.textContent='Herunterladen'; b.disabled=false; b.onclick=function(){ b.disabled=true; L.progDownload(); }; }
+  if (d.state==='progress'){ $('progTxt').textContent='Lädt … '+d.percent+' %'; }
+  if (d.state==='ready'){ $('progTxt').textContent='Programm-Update bereit'; b.textContent='Neu starten'; b.disabled=false; b.onclick=function(){ L.progInstall(); }; }
+  if (d.state==='error' && p.style.display==='flex'){ $('progTxt').textContent='Programm-Update fehlgeschlagen'; b.disabled=false; }
+});
+
+// Einstellungen: Strg + Umschalt + P
+document.addEventListener('keydown', async function(e){
+  if (e.ctrlKey && e.shiftKey && (e.key==='P'||e.key==='p')){
+    var d = await L.pubGet();
+    $('sRepo').value = d.repo; $('sTok').value='';
+    $('sHint').textContent = d.hasToken ? 'Token ist gespeichert. Leer lassen, um ihn zu behalten.' : 'Noch kein Token gespeichert.';
+    $('sMsg').textContent=''; $('mSet').classList.add('on');
+  }
+  if (e.key==='Escape'){ $('mSet').classList.remove('on'); $('mPub').classList.remove('on'); }
+});
+$('sClose').onclick=function(){ $('mSet').classList.remove('on'); };
+$('sSave').onclick=async function(){
+  var t=$('sTok').value.trim();
+  await L.pubSave(t ? { repo:$('sRepo').value, token:t } : { repo:$('sRepo').value });
+  $('mSet').classList.remove('on'); refresh();
+};
+$('sDel').onclick=async function(){ await L.pubSave({ repo:$('sRepo').value, token:'' }); $('mSet').classList.remove('on'); refresh(); };
+
+// Veröffentlichen
+$('pubBtn').onclick=function(){
+  var base = state.remote && cmp(state.remote.version, state.info.content)>0 ? state.remote.version : state.info.content;
+  $('pVer').value = next(base); $('pLog').value=''; $('pMsg').textContent=''; $('pMsg').className='msg';
+  state.file=null; $('pFile').textContent='Keine Datei gewählt';
+  $('mPub').classList.add('on');
+};
+$('pClose').onclick=function(){ $('mPub').classList.remove('on'); };
+$('pPick').onclick=async function(){
+  var f=await L.pubPick(); if (!f) return;
+  state.file=f; $('pFile').textContent=f.split(/[\\\/]/).pop(); $('pFile').title=f;
+  var m=/(\d+\.\d+\.\d+)/.exec(f.split(/[\\\/]/).pop()); if (m) $('pVer').value=m[1];
+};
+$('pGo').onclick=async function(){
+  var msg=$('pMsg');
+  if (!state.file){ msg.className='msg err'; msg.textContent='Bitte zuerst die Datei wählen.'; return; }
+  $('pGo').disabled=true; msg.className='msg'; msg.textContent='Wird hochgeladen …';
+  try {
+    var v = await L.publish({ file:state.file, version:$('pVer').value, changelog:$('pLog').value });
+    msg.className='msg ok'; msg.textContent='Version '+v+' ist online.';
+    setTimeout(function(){ $('mPub').classList.remove('on'); refresh(); }, 1200);
+  } catch(e){ msg.className='msg err'; msg.textContent=String(e.message||e).replace(/^Error invoking remote method '[^']+': (Error: )?/,''); }
+  $('pGo').disabled=false;
+};
+
+refresh();
+L.progCheck();
+})();
+</script>
+</body>
+</html>
