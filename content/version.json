@@ -1,5 +1,5 @@
 {
-  "version": "1.0.19",
+  "version": "1.0.20",
   "date": "2026-11-22",
-  "changelog": "🟧 Melonenkonverter 1.0.19\n\n✨ Neu\n• Blender-Anleitung mit Add-on-Download direkt im Konverter (Knopf „🟧 Blender“ oben rechts)"
+  "changelog": "🛠 Verbessert\n• Alle reingezogenen PAA-Texturen erscheinen in der Liste\n• Farbvarianten (BLK/OD/GRY/FDE …) werden automatisch zugewiesen und sind per Klick umschaltbar"
 }
