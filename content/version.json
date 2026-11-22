@@ -1,5 +1,5 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "date": "2026-11-22",
-  "changelog": "🛠 Verbessert\n• Stabiler bei beschädigten oder ungewöhnlichen Dateien\n• Verständlichere Fehlermeldungen"
+  "changelog": "🐞 Behoben\n• Binarisierte P3D-Dateien (DayZ/Arma, ODOL v73–v75) werden jetzt richtig umgewandelt\n• Platzhalter-Flächen für Anbauteile werden automatisch entfernt"
 }
