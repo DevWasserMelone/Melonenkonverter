@@ -148,7 +148,7 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
         <div id="tbStrip"></div>
       </div>
       <input type="file" id="tbDir" webkitdirectory multiple hidden>
-      <div id="viewHelp">Linke Maus drehen · Rechte Maus verschieben · Mausrad zoomen · F zentrieren</div>
+      <div id="viewHelp">Linke Maus drehen · Rechte Maus verschieben · Mausrad zoomen · F zentrieren · Textur aufs Modell ziehen = zuweisen</div>
     </div>
     <div class="viewbar">
       <span style="color:var(--dim)">LOD</span>
@@ -1246,7 +1246,17 @@ async function addEntries(entries){
     if (S.auto && (added[k].model || added[k].img)) await convert(added[k]);
   }
   batchDir=null;
-  if (added.length && (!selected || added.indexOf(selected)<0)) select(added[added.length-1]);
+  // neue Texturen: bereits geladene Modelle direkt damit bekleiden
+  var newTex = entries.some(function(e){ return isTexName(e.name); }), applied=0;
+  if (newTex){
+    for (var j=0;j<files.length;j++){
+      var mf=files[j]; if (!mf.model || added.indexOf(mf)>=0) continue;
+      var before=Object.keys(mf.override||{}).length; await autoAssign(mf); applied+=Object.keys(mf.override||{}).length-before;
+    }
+    if (applied) log('✓ '+applied+' Textur(en) automatisch aufs Modell gelegt', 'ok');
+  }
+  var keepModel = selected && selected.model && added.every(function(f){ return f.kind==='paa'; });
+  if (added.length && !keepModel && (!selected || added.indexOf(selected)<0)) select(added[added.length-1]);
   else if (selected) select(selected);
 }
 
@@ -1446,6 +1456,7 @@ function render(){
       cb.onclick=function(ev){ ev.stopPropagation(); f.checked=this.checked; render(); };
       d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
       d.onclick=function(){ select(f); };
+      if (f.img){ d.draggable=true; d.ondragstart=function(ev){ ev.dataTransfer.setData('text/mk-tex', f.id); ev.dataTransfer.effectAllowed='copy'; }; d.title+='\nAuf das Modell ziehen, um die Textur zuzuweisen'; }
       d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
       L.appendChild(d);
     });
@@ -1760,9 +1771,51 @@ drop.onclick=async function(){
 };
 $('fileIn').onchange=function(){ addEntries(Array.from(this.files).map(fileEntry)); this.value=''; };
 function fileEntry(file){ var p = mk && mk.pathForFile ? mk.pathForFile(file) : ''; return p ? { name:file.name, path:p } : { name:file.name, file:file }; }
-['dragenter','dragover'].forEach(function(t){ document.addEventListener(t,function(e){ e.preventDefault(); drop.classList.add('over'); }); });
-['dragleave','drop'].forEach(function(t){ document.addEventListener(t,function(e){ e.preventDefault(); if (t==='drop' || !e.relatedTarget) drop.classList.remove('over'); }); });
-document.addEventListener('drop',function(e){ addEntries(Array.from(e.dataTransfer.files).map(fileEntry)); });
+// Texturen direkt aufs Modell ziehen
+var dragKey=null;
+function overView(e){ var r=$('viewWrap').getBoundingClientRect(); return e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom; }
+function dragIsTexture(e){
+  var dt=e.dataTransfer; if (!dt) return false;
+  if (Array.prototype.indexOf.call(dt.types,'text/mk-tex')>=0) return true;
+  if (dt.items && dt.items.length) return Array.prototype.every.call(dt.items,function(it){ return it.kind==='file' && /^image\//.test(it.type||'') || (it.kind==='file' && !it.type); });
+  return false;
+}
+function canTexDrop(e){ return selected && selected.model && overView(e) && dragIsTexture(e); }
+['dragenter','dragover'].forEach(function(t){ document.addEventListener(t,function(e){
+  e.preventDefault();
+  if (canTexDrop(e)){
+    var k=viewer.pick(e.clientX,e.clientY);
+    if (k!==dragKey){ dragKey=k; viewer.highlight(k,true); }
+    drop.classList.remove('over'); return;
+  }
+  if (dragKey){ dragKey=null; viewer.highlight(tb.open?tb.m.key:null,true); }
+  if (Array.prototype.indexOf.call(e.dataTransfer.types,'text/mk-tex')<0) drop.classList.add('over');
+}); });
+document.addEventListener('dragleave',function(e){ e.preventDefault(); if (!e.relatedTarget){ drop.classList.remove('over'); if (dragKey){ dragKey=null; viewer.highlight(tb.open?tb.m.key:null); } } });
+document.addEventListener('drop',async function(e){
+  e.preventDefault(); drop.classList.remove('over');
+  var listId=e.dataTransfer.getData('text/mk-tex');
+  var files=Array.from(e.dataTransfer.files);
+  if (selected && selected.model && overView(e) && (listId || (files.length && files.every(function(x){ return isTexName(x.name); })))){
+    var key=viewer.pick(e.clientX,e.clientY) || dragKey || (tb.open ? tb.m.key : null);
+    dragKey=null; viewer.highlight(tb.open?tb.m.key:null,true);
+    if (!key){ log('Lass die Textur direkt über einem Teil des Modells los.','err'); return; }
+    try {
+      var img, name;
+      if (listId){ var src=files.length?null:window.__mkFiles().find(function(x){ return x.id===listId; }); if (!src || !src.img) return; img=src.img; name=src.name; }
+      else { var en=fileEntry(files[0]); libAdd(en); name=files[0].name; img=/\.pa[ac]$/i.test(name) ? MK.decodePAA(await readEntry(en)) : await decodeImageBytes(await readEntry(en)); }
+      var f=selected; f.override=f.override||{}; f.override[key]={ img:img, name:name };
+      hx('drop '+name+' → '+key);
+      if (tb.open && tb.f===f && tb.m.key===key){ tb.prev=f.override[key]; }
+      refreshView();
+      var m=MK.collectMaterials(f.model,[f.lodPick!=null?f.lodPick:MK.defaultLod(f.model)]).map[key];
+      log('✓ '+name+' liegt jetzt auf „'+(m?m.name:key)+'“', 'ok');
+    } catch(err){ showErr('Textur konnte nicht gelesen werden: '+clean(err)); }
+    return;
+  }
+  addEntries(files.map(fileEntry));
+});
+window.__mkFiles=function(){ return files; };
 
 // ---------- Ordner überwachen ----------
 function setWatch(dir){
@@ -1832,7 +1885,7 @@ var viewer = (function(){
       var img=texFor(f,k,texOf[k]), tex=white, own=false;
       if (img && img.rgba){ tex=mkTex(img.width,img.height,img.rgba); own=true; }
       else { var pc=/color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(texOf[k]); tex=colTex(pc?[+pc[1],+pc[2],+pc[3]]:MK.autoColor(k)); own=true; }
-      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own,key:k});
+      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own,key:k,data:new Float32Array(by[k])});
     });
     if (min[0]>max[0]){ min=[-1,0,-1]; max=[1,1,1]; }
     var nid = f.id+':'+li;
@@ -1888,8 +1941,29 @@ var viewer = (function(){
   window.addEventListener('keydown',function(e){ if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return; if ((e.key==='f'||e.key==='F') && !e.ctrlKey && selected){ viewer._last=null; refreshView(); } });
   $('showBack').onchange=draw;
   window.addEventListener('resize',draw);
+  // Welches Teil liegt unter dem Mauszeiger? (Strahl gegen alle Dreiecke)
+  function pick(cx,cy){
+    if (!groups.length) return null;
+    var r=cv.getBoundingClientRect(), nx=((cx-r.left)/r.width)*2-1, ny=1-((cy-r.top)/r.height)*2;
+    if (nx<-1||nx>1||ny<-1||ny>1) return null;
+    var e=eye(), z=norm(sub(e,cam.target)), x=norm(cross([0,1,0],z)), y=cross(z,x), t=Math.tan(0.4), asp=r.width/Math.max(r.height,1);
+    var d=norm([-z[0]+x[0]*nx*t*asp+y[0]*ny*t, -z[1]+x[1]*nx*t*asp+y[1]*ny*t, -z[2]+x[2]*nx*t*asp+y[2]*ny*t]);
+    var best=1e30, hit=null;
+    groups.forEach(function(g){
+      var a=g.data;
+      for (var i=0;i<a.length;i+=24){
+        var e1x=a[i+8]-a[i], e1y=a[i+9]-a[i+1], e1z=a[i+10]-a[i+2], e2x=a[i+16]-a[i], e2y=a[i+17]-a[i+1], e2z=a[i+18]-a[i+2];
+        var px=d[1]*e2z-d[2]*e2y, py=d[2]*e2x-d[0]*e2z, pz=d[0]*e2y-d[1]*e2x, det=e1x*px+e1y*py+e1z*pz;
+        if (det>-1e-12 && det<1e-12) continue;
+        var inv=1/det, sx=e[0]-a[i], sy=e[1]-a[i+1], sz=e[2]-a[i+2], u=(sx*px+sy*py+sz*pz)*inv; if (u<0||u>1) continue;
+        var qx=sy*e1z-sz*e1y, qy=sz*e1x-sx*e1z, qz=sx*e1y-sy*e1x, v=(d[0]*qx+d[1]*qy+d[2]*qz)*inv; if (v<0||u+v>1) continue;
+        var tt=(e2x*qx+e2y*qy+e2z*qz)*inv; if (tt>0 && tt<best){ best=tt; hit=g.key; }
+      }
+    });
+    return hit;
+  }
   function setTex(k,img){ groups.forEach(function(g){ if (g.key!==k) return; if (g.own) gl.deleteTexture(g.tex); g.tex=mkTex(img.width,img.height,img.rgba); g.own=true; }); draw(); }
-  return { set:set, draw:draw, setTex:setTex, highlight:function(k,soft){ hiKey=k||null; hiSoft=!!soft; draw(); } };
+  return { set:set, draw:draw, setTex:setTex, pick:pick, highlight:function(k,soft){ hiKey=k||null; hiSoft=!!soft; draw(); } };
 })();
 render();
 })();
