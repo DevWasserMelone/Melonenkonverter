@@ -29,6 +29,6 @@
       "createDesktopShortcut": true,
       "shortcutName": "Melonenkonverter"
     },
-    "publish": [{ "provider": "github", "owner": "DevWasserMelone", "repo": "Melonenkonverter" }]
+   "publish": [{ "provider": "github", "owner": "DevWasserMelone", "repo": "Melonenkonverter", "releaseType": "release" }]
   }
 }
