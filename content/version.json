@@ -1,5 +1,5 @@
 {
-  "version": "1.0.16",
+  "version": "1.0.17",
   "date": "2026-11-22",
-  "changelog": "🛠 Verbessert\n• Textur-Browser zeigt nur noch selbst hinzugefügte Texturen\n• Dateien werden erst beim Klick auf „Umwandeln“ gespeichert"
+  "changelog": "🟧 Melonenkonverter 1.0.17 – Blender-Update\n\n✨ Neu\n• „An Blender“: Modell mit einem Klick samt Texturen in Blender (Add-on unter Einstellungen → Blender)\n• Rechtsklick-Menü auf Dateien\n• Tastenkürzel (F1 zeigt alle)\n• Einblendungen bei jeder Aktion\n• Fortschrittsanzeige beim Umwandeln mehrerer Dateien"
 }
