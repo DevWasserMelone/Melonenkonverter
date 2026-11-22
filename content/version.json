@@ -1,5 +1,5 @@
 {
-  "version": "1.0.12",
+  "version": "1.0.13",
   "date": "2026-11-22",
-  "changelog": "🎨 Melonenkonverter 1.0.12\n\n✨ Neu\n• Materialliste mit Texturvorschau: zeigt, welche Texturen gefunden wurden und welche fehlen\n• Mit der Maus über ein Material fahren → das Teil leuchtet in der 3D-Vorschau auf\n• Fehlende Texturen direkt im Konverter zuweisen (PAA, PNG, JPG)\n• In Blender ist jedes Teil ein eigenes Objekt mit dem Namen seiner Textur\n• Teile ohne Textur bekommen eigene Farben"
+  "changelog": "📦 Melonenkonverter 1.0.13\n\n✨ Neu\n• OBJ-Dateien öffnen: Modell mit Texturen ansehen\n• Materialdatei (.mtl) und Texturen werden automatisch gefunden\n• Fehlende Texturen zuweisen und als neue OBJ speichern"
 }
