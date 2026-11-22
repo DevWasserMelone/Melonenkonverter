@@ -107,8 +107,8 @@ body.hacker #matPanel{background:rgba(2,10,5,.9)}
 <main>
   <section class="col">
     <div class="colhead">Dateien <span class="sp"></span><span id="count"></span></div>
-    <div id="drop" class="snowcap"><b>P3D- oder PAA-Dateien hier reinziehen</b>oder klicken zum Auswählen</div>
-    <input type="file" id="fileIn" accept=".p3d,.paa" multiple hidden>
+    <div id="drop" class="snowcap"><b>P3D, OBJ oder PAA hier reinziehen</b>oder klicken zum Auswählen</div>
+    <input type="file" id="fileIn" accept=".p3d,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg" multiple hidden>
     <div class="tools"><input id="search" placeholder="Suchen …" spellcheck="false"><label class="selall"><input type="checkbox" id="selAll">Alle auswählen</label></div>
     <div id="list"><div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div></div>
     <div class="actions">
@@ -745,6 +745,60 @@ body.noxmas .snowcap::before{display:none}
     return { resolution: resolution, points: pts, normals: new Float32Array(0), faces: outFaces, selections: [], nPoints: vc, nFaces: outFaces.length, noUV: !uv };
   }
 
+
+  // ---------- OBJ/MTL lesen ----------
+  function text(buf) { return new TextDecoder('utf-8').decode(buf); }
+  function parseMTL(src) {
+    var mats = {}, cur = null;
+    String(src).split(/\r?\n/).forEach(function (line) {
+      var t = line.trim(); if (!t || t[0] === '#') return;
+      var sp = t.split(/\s+/), k = sp[0].toLowerCase();
+      if (k === 'newmtl') { cur = { name: t.slice(7).trim(), map: '', kd: null }; mats[cur.name] = cur; }
+      else if (!cur) return;
+      else if (k === 'kd') cur.kd = [+sp[1], +sp[2], +sp[3]];
+      else if (k === 'map_kd') {
+        // Optionen wie -s 1 1 1 überspringen, Rest ist der Dateiname
+        var rest = t.slice(6).trim(), m = /^(?:-\w+(?:\s+[-\d.]+)*\s+)*(.+)$/.exec(rest);
+        cur.map = (m ? m[1] : rest).trim();
+      }
+    });
+    return mats;
+  }
+  function parseOBJ(buf) {
+    var src = typeof buf === 'string' ? buf : text(buf);
+    var vs = [], vts = [], faces = [], mtllib = [], cur = '';
+    var lines = src.split(/\r?\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i]; if (!t) continue;
+      var c0 = t.charCodeAt(0); if (c0 === 35) continue;
+      var sp = t.trim().split(/\s+/), k = sp[0];
+      if (k === 'v') vs.push(+sp[1], +sp[2], -(+sp[3]));
+      else if (k === 'vt') vts.push(+sp[1], +(sp[2] || 0));
+      else if (k === 'f') {
+        var nv = vs.length / 3, nt = vts.length / 2, cs = [];
+        for (var j = 1; j < sp.length; j++) {
+          var q = sp[j].split('/'), pi = parseInt(q[0], 10), ti = q[1] ? parseInt(q[1], 10) : NaN;
+          if (pi < 0) pi = nv + pi + 1; if (ti < 0) ti = nt + ti + 1;
+          if (!(pi >= 1 && pi <= nv)) throw new Error('OBJ-Datei beschädigt (Zeile ' + (i + 1) + ').');
+          var u = 0, v = 0; if (ti >= 1 && ti <= nt) { u = vts[(ti - 1) * 2]; v = 1 - vts[(ti - 1) * 2 + 1]; }
+          cs.push({ p: pi - 1, n: -1, u: u, v: v });
+        }
+        if (cs.length >= 3) faces.push({ v: cs.reverse(), flags: 0, tex: '', mat: cur });
+      }
+      else if (k === 'usemtl') cur = t.trim().slice(7).trim();
+      else if (k === 'mtllib') mtllib.push(t.trim().slice(7).trim());
+    }
+    if (!faces.length) throw new Error('In der OBJ-Datei wurden keine Flächen gefunden.');
+    var lod = { resolution: 0, points: new Float32Array(vs), normals: new Float32Array(0), faces: faces, selections: [], nPoints: vs.length / 3, nFaces: faces.length, name: 'Modell', visual: true, index: 0 };
+    return { lods: [lod], obj: true, mtllib: mtllib };
+  }
+  function applyMTL(model, mats) {
+    model.lods.forEach(function (l) { l.faces.forEach(function (f) {
+      var m = mats[f.mat]; if (!m) return;
+      if (m.map) f.tex = m.map;
+    }); });
+  }
+
   // ---------- Umrechnung ins OBJ-Koordinatensystem ----------
   // Arma: linkshändig, Y oben. OBJ/Blender: rechtshändig, Y oben -> Z spiegeln.
   function prepareLod(lod, opt) {
@@ -808,8 +862,9 @@ body.noxmas .snowcap::before{display:none}
         if (map[k]) { map[k].faces++; return; }
         var nm;
         if (!f.tex && !f.mat) nm = 'ohne_textur_' + (list.filter(function (x) { return x.key.indexOf('#teil') === 0; }).length + 1);
-        else if (f.tex && f.tex.charAt(0) === '#') nm = 'farbe';
-        else nm = stripExt(baseName(f.tex || f.mat));
+        else if (f.tex && f.tex.charAt(0) === '#' && !f.mat) nm = 'farbe';
+        else if (f.tex && f.tex.charAt(0) !== '#') nm = stripExt(baseName(f.tex));
+        else nm = stripExt(baseName(f.mat));
         nm = safeName(nm);
         var base = nm, c = 2; while (used[nm]) nm = base + '_' + (c++);
         used[nm] = 1;
@@ -1056,6 +1111,7 @@ body.noxmas .snowcap::before{display:none}
 
   root.MK = {
     materialKey: materialKey, autoColor: autoColor, collectMaterials: collectMaterials,
+    parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
     parseP3D: parseP3D, defaultLod: defaultLod, prepareLod: prepareLod, buildOBJ: buildOBJ, buildMTL: buildMTL,
     decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x
   };
@@ -1121,12 +1177,13 @@ function showErr(msg){
 var paaPool = {}; // im Browser mitgezogene Texturen
 async function addEntries(entries){
   var added=[];
-  var hasP3d = entries.some(function(e){ return /\.p3d$/i.test(e.name); });
+  var hasModel = entries.some(function(e){ return /\.(p3d|obj)$/i.test(e.name); });
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
-    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; if (hasP3d) continue; }
-    else if (!low.endsWith('.p3d')) continue;
-    var kind = low.endsWith('.p3d') ? 'p3d' : 'paa';
+    if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
+    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; if (hasModel) continue; }
+    else if (!/\.(p3d|obj)$/.test(low)) continue;
+    var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
     if (ex) { ex.entry=en; ex.model=null; ex.img=null; ex.status='wait'; ex.err=''; added.push(ex); continue; }
     var f = { kind:kind, id:Math.random().toString(36).slice(2), name:name, path:en.path||'', entry:en, model:null, status:'wait', err:'', lodPick:null, tex:{}, out:'' };
@@ -1158,9 +1215,13 @@ async function load(f){
       hx('texture '+f.img.format+' · '+f.img.width+'x'+f.img.height+(f.img.hasAlpha?' · alpha':'')+' · '+buf.length+' bytes');
       f.status='wait'; f.err=''; render(); return;
     }
-    f.model = MK.parseP3D(buf);
+    if (f.kind==='obj'){
+      f.model = MK.parseOBJ(buf);
+      await loadMtl(f);
+      hx('format OBJ · '+f.model.lods[0].nPoints+' vertices · '+f.model.lods[0].nFaces+' faces');
+    } else f.model = MK.parseP3D(buf);
     f.lodPick = null;
-    hx('format '+(f.model.odol?'ODOL v'+f.model.version:'MLOD')+' · '+f.model.lods.length+' LODs · '+buf.length+' bytes');
+    if (f.kind!=='obj') hx('format '+(f.model.odol?'ODOL v'+f.model.version:'MLOD')+' · '+f.model.lods.length+' LODs · '+buf.length+' bytes');
     f.model.lods.forEach(function(l,i){ if(i<6) hx('  lod['+i+'] '+l.name+' · vc='+l.nPoints+' · faces='+l.nFaces+(l.failed?' · SKIP':''), l.failed?'w':''); });
     f.status='wait'; f.err='';
     await loadTextures(f);
@@ -1168,9 +1229,25 @@ async function load(f){
   render();
 }
 
+async function loadMtl(f){
+  var names=f.model.mtllib.slice(), mats={};
+  if (!names.length) names=[MK.stripExt(f.name)+'.mtl'];
+  for (var i=0;i<names.length;i++){
+    try {
+      var en=null, base=MK.baseName(names[i]).toLowerCase();
+      if (mk && f.path){ var p=await mk.findTexture(f.path, names[i]); if (p) en={path:p}; }
+      else en=paaPool[base]||null;
+      if (!en) { hx('mtl '+names[i]+' nicht gefunden','w'); continue; }
+      Object.assign(mats, MK.parseMTL(new TextDecoder().decode(await readEntry(en))));
+      hx('mtl '+names[i]+' · '+Object.keys(mats).length+' materials');
+    } catch(e){ hx('mtl '+names[i]+' fehlerhaft','w'); }
+  }
+  MK.applyMTL(f.model, mats);
+}
+
 async function findPaa(f, tex){
   var base = MK.baseName(tex).toLowerCase();
-  if (!/\.paa$|\.pac$/.test(base)) return null;
+  if (!/\.(paa|pac|png|jpe?g|bmp|webp)$/.test(base)) return null;
   if (mk && f.path){
     var p = await mk.findTexture(f.path, tex);
     return p ? { path:p } : null;
@@ -1190,8 +1267,8 @@ async function loadTextures(f){
       try {
         var en = await findPaa(f, t);
         if (!en) { f.tex[t]={missing:true}; continue; }
-        var img = MK.decodePAA(await readEntry(en));
-        f.tex[t] = img;
+        var bytes = await readEntry(en);
+        f.tex[t] = /\.pa[ac]$/i.test(t) ? MK.decodePAA(bytes) : await decodeImageBytes(bytes);
       } catch(e){ f.tex[t]={error:clean(e)}; }
     }
   }
@@ -1223,7 +1300,7 @@ async function convert(f, dirOverride){
   if (!f.model) return;
   f.status='busy'; render(); hxBurst(2500); hxProgress('compile '+f.name);
   try {
-    var base = MK.safeName(MK.stripExt(f.name)), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
+    var base = MK.safeName(MK.stripExt(f.name))+(f.kind==='obj'?'_neu':''), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
     for (var s=0;s<sets.length;s++){
       var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
       var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
@@ -1286,7 +1363,7 @@ $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFo
 $('clear').onclick = function(){ files=[]; selected=null; paaPool={}; render(); select(null); };
 
 // ---------- Liste ----------
-var GROUPS=[['p3d','P3D-Modelle'],['paa','PAA-Texturen']];
+var GROUPS=[['p3d','P3D-Modelle'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
 function visible(){
   var q=($('search').value||'').trim().toLowerCase();
   return files.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q)>=0; });
@@ -1311,7 +1388,7 @@ function render(){
     if (closed) return;
     items.forEach(function(f){
       var d=document.createElement('div'); d.className='item'+(f===selected?' sel':'');
-      var sub = f.status==='err' ? 'Fehler' : f.img ? f.img.format+' · '+f.img.width+'×'+f.img.height : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
+      var sub = f.status==='err' ? 'Fehler' : f.img ? f.img.format+' · '+f.img.width+'×'+f.img.height : (f.model && f.kind==='obj') ? 'OBJ · '+f.model.lods[0].nFaces+' Flächen' : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
       if (f.status==='ok') sub='Umgewandelt · '+sub;
       d.innerHTML='<input type="checkbox" class="cb"><span class="st '+({ok:'ok',err:'err',busy:'busy'}[f.status]||'')+'"></span><div style="min-width:0"><div class="n"></div><div class="s"></div></div><button class="x" title="Entfernen">✕</button>';
       var cb=d.querySelector('.cb'); cb.checked=!!f.checked; cb.disabled=!ready(f);
@@ -1409,6 +1486,15 @@ function renderMats(f, li){
     d.onmouseleave=function(){ viewer.highlight && viewer.highlight(null); };
     L.appendChild(d);
   });
+}
+async function decodeImageBytes(bytes){
+  var bmp=await createImageBitmap(new Blob([bytes]));
+  return bitmapToImg(bmp);
+}
+function bitmapToImg(bmp){
+  var c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height; var ctx=c.getContext('2d'); ctx.drawImage(bmp,0,0);
+  var data=ctx.getImageData(0,0,c.width,c.height).data, hasAlpha=false; for (var i=3;i<data.length;i+=4) if (data[i]<250){ hasAlpha=true; break; }
+  return { width:c.width, height:c.height, rgba:new Uint8Array(data.buffer.slice(0)), hasAlpha:hasAlpha, format:'Bild' };
 }
 async function decodeImageFile(file, path){
   var low=(file? file.name : path).toLowerCase();
