@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "date": "2026-11-22",
-  "changelog": "🐞 Behoben\n• Binarisierte P3D-Dateien (DayZ/Arma, ODOL v73–v75) werden jetzt richtig umgewandelt\n• Platzhalter-Flächen für Anbauteile werden automatisch entfernt"
+  "changelog": "🎄 Melonenkonverter Weihnachts-Update\n\n✨ Neu\n• Weihnachtsdeko: Lichterketten, Schnee und Mütze\n• Deko lässt sich rechts unter „Weihnachtsdeko“ abschalten\n\n🛠 Verbessert\n• Verständlichere Meldungen, wenn das Speichern nicht klappt"
 }
