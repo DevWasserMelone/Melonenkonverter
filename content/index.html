@@ -66,7 +66,7 @@ select:focus,input:focus{border-color:var(--green)}
 footer{height:26px;border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--dim);gap:8px}
 footer .ok{color:var(--green)} footer .err{color:var(--red)}
 .log{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#err{margin:10px 12px 0;padding:8px 10px;border-radius:6px;background:rgba(239,91,91,.1);border:1px solid rgba(239,91,91,.35);color:#f3a3a3;font-size:12px;display:none}
+#err{gap:10px;align-items:center;margin:10px 12px 0;padding:8px 10px;border-radius:6px;background:rgba(239,91,91,.1);border:1px solid rgba(239,91,91,.35);color:#f3a3a3;font-size:12px;display:none}
 .toggle{position:relative;width:32px;height:18px;border-radius:9px;background:#3a4049;border:0;cursor:pointer;flex:none}
 .toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#cfd3d8;transition:.15s}
 .toggle.on{background:var(--green)} .toggle.on::after{left:16px;background:#fff}
@@ -200,11 +200,12 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   function parseP3D(buf) {
     var r = new Reader(buf);
     var sig = r.peekSig();
-    if (sig === 'ODOL') {
-      var e = new Error('Diese P3D ist binarisiert (ODOL). Nur unbinarisierte P3D-Dateien (MLOD) lassen sich umwandeln, z. B. die Originaldatei aus deinem Projektordner.');
-      e.code = 'ODOL'; throw e;
-    }
     var lods = [];
+    if (sig === 'ODOL') {
+      lods = readODOL(r);
+      lods.forEach(function (l, idx) { var info = lodInfo(l.resolution); l.name = info.name; l.visual = info.visual; l.index = idx; });
+      return { lods: lods, odol: true, version: r.odolVersion };
+    }
     if (sig === 'MLOD') {
       r.p += 4;
       r.u32(); // Version
@@ -272,6 +273,193 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     if (vis.length) return vis.reduce(function (a, b) { return b.resolution < a.resolution ? b : a; }).index;
     var any = model.lods.filter(function (l) { return l.nFaces > 0; });
     return any.length ? any[0].index : 0;
+  }
+
+  // ---------- P3D (ODOL, binarisiert) lesen ----------
+  function odolErr(ver, msg) { var e = new Error('Binarisierte P3D (ODOL v' + ver + '): ' + msg); e.code = 'ODOL'; return e; }
+
+  function f32ok(v, lim) { return isFinite(v) && Math.abs(v) < (lim || 1e7); }
+
+  // Kompriertes Feld lesen: Version >= 64 mit Merker-Byte, sonst ab 1024 Bytes LZO
+  function odolData(u8, p, size, ver) {
+    var compressed = size >= 1024;
+    if (ver >= 64) { var fl = u8[p]; if (fl > 1) throw new Error('flag'); compressed = fl === 1; p++; }
+    if (!compressed) { if (p + size > u8.length) throw new Error('size'); return { data: u8.subarray(p, p + size), end: p + size }; }
+    var out = lzo1x(u8.subarray(p, Math.min(u8.length, p + size * 2 + 4096)), size);
+    return { data: out, end: p + out.consumed };
+  }
+
+  function readODOL(r) {
+    var u8 = r.u8, dv = r.dv, size = u8.length;
+    r.p = 4;
+    var ver = r.u32(); r.odolVersion = ver;
+    if (ver < 50) throw odolErr(ver, 'Diese alte Version wird nicht unterstützt.');
+    var U32 = function (p) { return dv.getUint32(p, true); }, I32 = function (p) { return dv.getInt32(p, true); }, F32 = function (p) { return dv.getFloat32(p, true); };
+
+    // Kopf: LOD-Anzahl und Auflösungen finden
+    function resOk(v) { return isFinite(v) && v >= 0 && v < 1e17; }
+    var lodCount = 0, resPos = 0;
+    for (var p = 8; p < Math.min(size - 8, 600) && !lodCount; p++) {
+      var n = U32(p);
+      if (n < 1 || n > 64 || p + 4 + n * 4 > size) continue;
+      var ok = true;
+      for (var i = 0; i < n && ok; i++) ok = resOk(F32(p + 4 + i * 4));
+      if (!ok) continue;
+      // die erste LOD ist fast immer eine Ansicht (< 1000)
+      if (F32(p + 4) >= 1e3 && n > 1) continue;
+      // davor muss ein Text enden (Null-Byte) oder direkt der Kopf
+      if (p !== 8 && p !== 12 && u8[p - 1] !== 0) continue;
+      lodCount = n; resPos = p + 4;
+    }
+    if (!lodCount) throw odolErr(ver, 'LOD-Liste nicht gefunden.');
+    var res = []; for (i = 0; i < lodCount; i++) res.push(F32(resPos + i * 4));
+
+    // Start-/End-Adressen der LODs suchen
+    var starts = null, ends = null;
+    for (p = resPos + lodCount * 4; p + lodCount * 8 <= size && !starts; p += 1) {
+      var s = [], e = [], good = true;
+      for (i = 0; i < lodCount && good; i++) {
+        s.push(U32(p + i * 4)); e.push(U32(p + (lodCount + i) * 4));
+        good = s[i] >= p + lodCount * 8 && e[i] > s[i] + 32 && e[i] <= size;
+      }
+      if (!good) continue;
+      var order = s.map(function (v, k) { return k; }).sort(function (a, b) { return s[a] - s[b]; });
+      for (i = 1; i < order.length && good; i++) good = s[order[i]] >= e[order[i - 1]];
+      if (good) { starts = s; ends = e; }
+    }
+    if (!starts) throw odolErr(ver, 'LOD-Adressen nicht gefunden.');
+
+    var lods = [], problems = [];
+    for (i = 0; i < lodCount; i++) {
+      try { lods.push(readOdolLod(u8, dv, starts[i], ends[i], ver, res[i])); }
+      catch (ex) {
+        problems.push('LOD ' + i + ': ' + ex.message);
+        lods.push({ resolution: res[i], points: new Float32Array(0), normals: new Float32Array(0), faces: [], selections: [], nPoints: 0, nFaces: 0, failed: ex.message });
+      }
+    }
+    if (!lods.some(function (l) { return l.nFaces > 0; })) throw odolErr(ver, problems.join(' | ') || 'keine Flächen gefunden.');
+    return lods;
+  }
+
+  function readOdolLod(u8, dv, start, end, ver, resolution) {
+    var r = new Reader(u8.subarray(0, end)); r.p = start;
+    var U32 = function (p) { return dv.getUint32(p, true); }, F32 = function (p) { return dv.getFloat32(p, true); };
+    // Proxys
+    var nProx = r.u32(); if (nProx > 10000) throw new Error('Kopf unlesbar (Proxys)');
+    for (var i = 0; i < nProx; i++) { r.str(); r.p += 48 + 12 + (ver >= 40 ? 4 : 0); }
+    var n = r.u32(); if (n > 100000) throw new Error('Kopf unlesbar (Skelett)'); r.p += n * 4;
+    n = r.u32(); if (n > 100000) throw new Error('Kopf unlesbar (Skelett 2)');
+    for (i = 0; i < n; i++) { var m = r.u32(); if (m > 100000) throw new Error('Kopf unlesbar (Skelett 3)'); r.p += m * 4; }
+    var vc = r.u32();
+    if (ver >= 51) r.f32();
+    r.u32(); r.u32();
+    var bmin = [r.f32(), r.f32(), r.f32()], bmax = [r.f32(), r.f32(), r.f32()];
+    r.p += 16; // Mitte + Radius
+    if (!(bmin[0] <= bmax[0] && bmin[1] <= bmax[1] && bmin[2] <= bmax[2]) || !f32ok(bmin[0]) || !f32ok(bmax[0]) || vc > 5e6)
+      throw new Error('Kopf unlesbar (Box)');
+    var nTex = r.u32(); if (nTex > 10000) throw new Error('Kopf unlesbar (Texturen)');
+    var textures = []; for (i = 0; i < nTex; i++) textures.push(r.str());
+    var after = r.p;
+    if (vc === 0) return { resolution: resolution, points: new Float32Array(0), normals: new Float32Array(0), faces: [], selections: [], nPoints: 0, nFaces: 0 };
+
+    // Flächen suchen
+    var faces = null, faceEnd = 0, faceOffsets = null, idxSizes = ver >= 69 ? [4, 2] : [2, 4];
+    for (var p = after; p + 12 < end && !faces; p++) {
+      var nf = U32(p);
+      if (nf < 1 || nf > 4e6) continue;
+      for (var si = 0; si < idxSizes.length && !faces; si++) for (var skip = 2; skip >= 0 && !faces; skip -= 2) {
+        var q = p + 8 + skip, isz = idxSizes[si], f = [], offs = [], ok = true, base = q;
+        for (var k = 0; k < nf; k++) {
+          if (q >= end) { ok = false; break; }
+          var c = u8[q];
+          if (c !== 3 && c !== 4) { ok = false; break; }
+          offs.push(q - base);
+          var vs = [];
+          for (var j = 0; j < c; j++) {
+            var at = q + 1 + j * isz;
+            var idx = isz === 4 ? U32(at) : (u8[at] | (u8[at + 1] << 8));
+            if (idx >= vc) { ok = false; break; }
+            vs.push(idx);
+          }
+          if (!ok) break;
+          f.push(vs); q += 1 + c * isz;
+        }
+        if (ok && nf >= 1) { faces = f; faceEnd = q; faceOffsets = offs; offs.push(q - base); }
+      }
+    }
+    if (!faces) throw new Error('Flächen nicht gefunden');
+
+    // Abschnitte (welche Textur für welche Flächen)
+    var faceTex = new Array(faces.length).fill(-1), secEnd = faceEnd;
+    try {
+      r.p = faceEnd;
+      var nSec = r.u32(); if (nSec < 1 || nSec > 100000) throw 0;
+      var secs = [];
+      for (i = 0; i < nSec; i++) {
+        var lo = r.u32(), hi = r.u32(); r.u32(); r.u32(); r.u32();
+        var ti = r.dv.getInt16(r.p, true); r.p += 2;
+        r.u32();
+        var mi = r.dv.getInt32(r.p, true); r.p += 4;
+        if (mi === -1) r.u8v();
+        if (ver >= 36) { var ns = r.u32(); if (ns > 64) throw 0; r.p += ns * 4; if (ver >= 67) { var x = r.dv.getInt32(r.p, true); r.p += 4; if (x >= 1) r.p += 44; } }
+        else r.p += 4;
+        if (ti < -1 || ti >= nTex || hi < lo) throw 0;
+        secs.push([lo, hi, ti]);
+      }
+      var maxHi = Math.max.apply(null, secs.map(function (s) { return s[1]; }));
+      var byOffset = maxHi > faces.length;
+      secs.forEach(function (s) {
+        for (var fi = 0; fi < faces.length; fi++) {
+          var pos = byOffset ? faceOffsets[fi] : fi;
+          if (pos >= s[0] && pos < s[1]) faceTex[fi] = s[2];
+        }
+      });
+      secEnd = r.p;
+    } catch (ex) { /* ohne Abschnitte: eine Textur */ }
+
+    // UVs suchen (min/max + Anzahl = Vertices)
+    var uv = null, uvEnd = secEnd;
+    for (p = secEnd; p + 22 < end && !uv; p++) {
+      if (U32(p + 16) !== vc) continue;
+      var a = F32(p), b = F32(p + 4), c2 = F32(p + 8), d = F32(p + 12);
+      if (!(f32ok(a, 1e4) && f32ok(b, 1e4) && f32ok(c2, 1e4) && f32ok(d, 1e4) && a <= c2 && b <= d)) continue;
+      var fill = u8[p + 20]; if (fill > 1) continue;
+      try {
+        var raw;
+        if (fill === 1) { raw = new Uint8Array(vc * 4); for (i = 0; i < vc; i++) raw.set(u8.subarray(p + 21, p + 25), i * 4); uvEnd = p + 25; }
+        else { var dd = odolData(u8, p + 21, vc * 4, ver); raw = dd.data; uvEnd = dd.end; }
+        var udv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength), uvs = new Float32Array(vc * 2);
+        for (i = 0; i < vc; i++) {
+          uvs[i * 2] = a + (c2 - a) * (udv.getInt16(i * 4, true) + 32767) / 65534;
+          uvs[i * 2 + 1] = b + (d - b) * (udv.getInt16(i * 4 + 2, true) + 32767) / 65534;
+        }
+        uv = uvs;
+      } catch (ex) { uv = null; }
+    }
+
+    // Positionen suchen (müssen in der Box liegen)
+    var pts = null, tol = 0.02 + 0.01 * Math.max(bmax[0] - bmin[0], bmax[1] - bmin[1], bmax[2] - bmin[2]);
+    function tryPos(p0) {
+      if (U32(p0) !== vc) return null;
+      var dd;
+      try { dd = odolData(u8, p0 + 4, vc * 12, ver); } catch (ex) { return null; }
+      var pdv = new DataView(dd.data.buffer, dd.data.byteOffset, dd.data.byteLength), out = new Float32Array(vc * 3);
+      for (var i2 = 0; i2 < vc * 3; i2++) {
+        var v = pdv.getFloat32(i2 * 4, true), ax = i2 % 3;
+        if (!(v >= bmin[ax] - tol && v <= bmax[ax] + tol)) return null;
+        out[i2] = v;
+      }
+      return out;
+    }
+    for (p = uv ? uvEnd : secEnd; p + 8 < end && !pts; p++) pts = tryPos(p);
+    if (!pts) for (p = after; p + 8 < end && !pts; p++) pts = tryPos(p);
+    if (!pts) throw new Error('Punkte nicht gefunden');
+
+    var outFaces = faces.map(function (vs, fi) {
+      var t = faceTex[fi] >= 0 ? textures[faceTex[fi]] : (textures.length === 1 ? textures[0] : '');
+      return { v: vs.map(function (ix) { return { p: ix, n: -1, u: uv ? uv[ix * 2] : 0, v: uv ? uv[ix * 2 + 1] : 0 }; }), flags: 0, tex: t || '', mat: '' };
+    });
+    return { resolution: resolution, points: pts, normals: new Float32Array(0), faces: outFaces, selections: [], nPoints: vc, nFaces: outFaces.length, noUV: !uv };
   }
 
   // ---------- Umrechnung ins OBJ-Koordinatensystem ----------
@@ -406,16 +594,16 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
 
   // ---------- PAA lesen ----------
   function lzo1x(src, outLen) {
-    var out = new Uint8Array(outLen), op = 0, ip = 0, t, m, state;
-    function lit(n) { for (var i = 0; i < n; i++) out[op++] = src[ip++]; }
-    function cpy(from, n) { if (from < 0) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = out[from + i]; }
+    var out = new Uint8Array(outLen), op = 0, ip = 0, t, m, state, srcLen = src.length;
+    function lit(n) { if (ip + n > srcLen || op + n > outLen) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = src[ip++]; }
+    function cpy(from, n) { if (from < 0 || op + n > outLen) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = out[from + i]; }
     if (src[ip] > 17) {
       t = src[ip++] - 17;
       if (t < 4) { lit(t); t = src[ip++]; state = 'match'; }
       else { lit(t); state = 'first'; }
     } else state = 'loop';
     for (;;) {
-      if (op > outLen) throw new Error('LZO-Fehler');
+      if (op > outLen || ip >= srcLen) throw new Error('LZO-Fehler');
       if (state === 'loop') {
         t = src[ip++];
         if (t >= 16) { state = 'match'; continue; }
@@ -444,7 +632,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
           t &= 7;
           if (t === 0) { while (src[ip] === 0) { t += 255; ip++; } t += 7 + src[ip++]; }
           m -= (src[ip] >> 2) + (src[ip + 1] << 6); ip += 2;
-          if (m === op) return out; // Ende
+          if (m === op) { if (op !== outLen) throw new Error('LZO-Fehler'); out.consumed = ip; return out; } // Ende
           m -= 0x4000;
           cpy(m, t + 2);
         } else {
@@ -616,7 +804,15 @@ if(mk) mk.version().then(function(v){ $('ver').textContent='Version '+v; }); els
 
 // ---------- Statuszeile ----------
 function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); }
-function showErr(msg){ var e=$('err'); e.textContent=msg||''; e.style.display=msg?'block':'none'; }
+function showErr(msg){
+  var e=$('err'); e.style.display=msg?'flex':'none'; e.innerHTML='';
+  if(!msg) return;
+  var t=document.createElement('span'); t.style.flex='1'; t.textContent=msg; e.appendChild(t);
+  var b=document.createElement('button'); b.className='btn'; b.textContent='Fehler kopieren';
+  b.onclick=function(){ var f=selected; var txt='Melonenkonverter '+$('ver').textContent+'\n'+(f?f.name+' ('+(f.size||0)+' Bytes)\n':'')+msg;
+    try{ navigator.clipboard.writeText(txt); b.textContent='Kopiert ✓'; }catch(x){} };
+  e.appendChild(b);
+}
 
 // ---------- Dateien hinzufügen ----------
 var paaPool = {}; // im Browser mitgezogene Texturen
@@ -649,6 +845,7 @@ async function load(f){
   f.status='busy'; render();
   try {
     var buf = await readEntry(f.entry);
+    f.size = buf.length;
     f.model = MK.parseP3D(buf);
     f.lodPick = null;
     f.status='wait'; f.err='';
@@ -788,7 +985,7 @@ function select(f){
   $('viewEmpty').style.display='none';
   var def=MK.defaultLod(f.model);
   var o=document.createElement('option'); o.value=''; o.textContent='Automatisch (laut Einstellung)'; sel.appendChild(o);
-  f.model.lods.forEach(function(l){ var op=document.createElement('option'); op.value=l.index; op.textContent=l.name+' – '+l.nFaces+' Flächen'+(l.index===def?' ★':''); sel.appendChild(op); });
+  f.model.lods.forEach(function(l){ var op=document.createElement('option'); op.value=l.index; op.textContent=l.name+' – '+(l.failed?'nicht lesbar':l.nFaces+' Flächen')+(l.index===def?' ★':''); sel.appendChild(op); });
   sel.value = f.lodPick==null ? '' : f.lodPick; sel.disabled=false;
   refreshView();
 }
@@ -799,7 +996,7 @@ function refreshView(){
   var li = f.lodPick!=null ? f.lodPick : MK.defaultLod(f.model), lod=f.model.lods[li];
   viewer.set(f, li);
   var texCount=0, texFound=0; Object.keys(f.tex).forEach(function(k){ texCount++; if (f.tex[k].rgba) texFound++; });
-  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'');
+  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
   $('viewInfo').querySelector('b').textContent=f.name;
 }
 
