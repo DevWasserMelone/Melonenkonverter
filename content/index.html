@@ -214,7 +214,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
 
       <h3>Texturen erstellen</h3>
-      <div class="row"><label class="t">Quelle</label><select id="aiSource"><option value="builtin">Eingebaut – gratis, offline, unbegrenzt</option><option value="polli">Online-KI – gratis, ohne Konto (1 Bild / 15 s)</option><option value="gemini">Gemini – eigener Schlüssel (kostenpflichtig)</option></select></div>
+      <div class="row"><label class="t">Quelle</label><select id="aiSource"><option value="polli">Online-KI – gratis, ohne Konto (empfohlen)</option><option value="builtin">Eingebaut – offline, einfache Muster</option><option value="gemini">Gemini – eigener Schlüssel (kostenpflichtig)</option></select></div>
       <div class="path" id="aiSrcHint"></div>
       <div id="gemBox" style="display:none">
         <div class="row" style="margin-top:8px"><label class="t">Gemini-API-Schlüssel</label><input type="password" id="aiKey" placeholder="AIza…" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none"></div>
@@ -258,6 +258,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
   <label class="chk"><input type="checkbox" id="aiSeamless" checked><span>Nahtlos kachelbar<small>Für Stoff, Metall, Holz – wiederholt sich ohne Kanten</small></span></label>
   <label class="chk" id="aiUVRow"><input type="checkbox" id="aiUV"><span>UV-Layout als Vorlage<small>Die KI bekommt die Form der Teile mit – für Logos/Details an bestimmten Stellen</small></span></label>
   <label class="chk"><input type="checkbox" id="ai2k"><span>2K statt 1K<small>Schärfer, dauert länger</small></span></label>
+  <label class="chk" id="aiAllRow"><input type="checkbox" id="aiAll"><span>Für alle Teile ohne Textur<small id="aiAllInfo"></small></span></label>
 </div>
 <div id="aiOut" style="display:none;gap:12px;align-items:flex-start;margin:6px 0">
   <div id="aiImg" style="width:180px;height:180px;flex:none;border-radius:6px;border:1px solid var(--line);background:#0d141d center/cover no-repeat"></div>
@@ -1443,10 +1444,11 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { aiSource:'builtin', aiModel:'gemini-3.1-flash-image', aiKey:'', v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var S = { aiSource:'polli', aiModel:'gemini-3.1-flash-image', aiKey:'', v:4, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
 var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
 Object.assign(S, saved);
-if (!(saved.v>=3)){ S.auto=false; S.v=3; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
+if (!(saved.v>=3)){ S.auto=false; }
+if (!(saved.v>=4)){ S.aiSource='polli'; S.v=4; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function save(){ try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function applyUI(){
   $('optAuto').checked=S.auto; $('optOut').value=S.out; $('optLod').value=S.lod; $('optMtl').checked=S.mtl;
@@ -2126,8 +2128,8 @@ $('tbStrip').addEventListener('wheel',function(e){ if (Math.abs(e.deltaY)>Math.a
 
 // ---------- KI-Texturen (Gemini) ----------
 $('aiKey').value=S.aiKey||''; $('aiModel').value=S.aiModel; $('aiSource').value=S.aiSource;
-var SRC_TXT={ builtin:'Eingebauter Generator: gratis, offline, unbegrenzt. Kann Stoff, Tarnmuster (Woodland, Multicam, Flecktarn, Digital), Metall, Holz, Leder, Rost, Carbon, Beton, Gummi, Plastik + Farben und „abgenutzt“, „Kratzer“, „dreckig“.',
-  polli:'Online-KI von Pollinations: gratis und ohne Konto, aber höchstens 1 Bild alle 15 Sekunden und abhängig davon, dass der Dienst online ist.',
+var SRC_TXT={ builtin:'Eingebauter Generator: offline und unbegrenzt, aber nur einfache Muster. Kann Stoff, Tarnmuster (Woodland, Multicam, Flecktarn, Digital), Metall, Holz, Leder, Rost, Carbon, Beton, Gummi, Plastik + Farben und „abgenutzt“, „Kratzer“, „dreckig“.',
+  polli:'Online-KI (Pollinations, Modell Flux): gratis und ohne Konto, echte KI-Bilder. Ohne Konto max. 1 Bild alle 15 Sekunden – mehrere Teile werden automatisch nacheinander erstellt.',
   gemini:'Googles Gemini-Bild-KI: beste Ergebnisse, braucht aber einen eigenen Schlüssel und kostet je nach Konto Geld.' };
 function srcUI(){ $('gemBox').style.display=S.aiSource==='gemini'?'block':'none'; $('aiSrcHint').textContent=SRC_TXT[S.aiSource]; }
 srcUI();
@@ -2142,6 +2144,9 @@ function openAI(f, m){
   $('aiDlg').classList.add('on'); setTimeout(function(){ $('aiPrompt').focus(); }, 50);
   $('aiSrcLine').textContent={ builtin:'Eingebauter Generator · gratis · unbegrenzt', polli:'Online-KI · gratis · 1 Bild alle 15 Sekunden', gemini:'Gemini · eigener Schlüssel' }[S.aiSource];
   $('aiUVRow').style.display = S.aiSource==='gemini' ? '' : 'none';
+  var miss=missingMats(f).filter(function(x){ return x.key!==m.key; });
+  $('aiAllRow').style.display = miss.length ? '' : 'none'; $('aiAll').checked=false;
+  $('aiAllInfo').textContent = miss.length ? 'Gleicher Prompt, zusätzlich für '+miss.length+' weitere'+(miss.length===1?'s Teil':' Teile')+' – passend nach Teilname' : '';
   if (S.aiSource==='gemini' && !S.aiKey) $('aiMsg').innerHTML='<span style="color:var(--yellow)">Trag zuerst rechts unter <b>Texturen erstellen</b> deinen Gemini-API-Schlüssel ein – oder stell die Quelle auf „Eingebaut“.</span>';
 }
 $('aiClose').onclick=function(){ $('aiDlg').classList.remove('on'); };
@@ -2172,12 +2177,29 @@ async function genBuiltin(prompt, size){
   var c=document.createElement('canvas'); c.width=img.width; c.height=img.height; var d=c.getContext('2d').createImageData(img.width,img.height); d.data.set(img.rgba); c.getContext('2d').putImageData(d,0,0);
   return { img:img, url:c.toDataURL('image/png'), mime:'image/png', u8:await rgbaToPng(img) };
 }
+var DE_EN={ metall:'metal', metallisch:'metallic', stahl:'steel', eisen:'iron', alu:'aluminium', aluminium:'aluminium', stoff:'fabric', textil:'textile', leder:'leather', holz:'wood', kunststoff:'polymer plastic', plastik:'plastic', polymer:'polymer', gummi:'rubber', beton:'concrete', stein:'stone', rost:'rust', rostig:'rusty', rostiges:'rusty',
+  schwarz:'black', schwarzes:'black', schwarzer:'black', grau:'gray', graues:'gray', oliv:'olive drab', grün:'green', gruen:'green', braun:'brown', braunes:'brown', rot:'red', blau:'blue', weiß:'white', weiss:'white', gelb:'yellow', sand:'sand', beige:'beige', silber:'silver', gold:'gold', dunkel:'dark', hell:'light',
+  abgenutzt:'worn', abgenutztes:'worn', abgenutzter:'worn', alt:'old', altes:'old', neu:'new', kratzer:'scratches', zerkratzt:'scratched', dreckig:'dirty', schmutzig:'dirty', staubig:'dusty', glänzend:'glossy', matt:'matte', gebürstet:'brushed', lackiert:'painted', poliert:'polished', geriffelt:'knurled', strukturiert:'textured',
+  tarn:'camouflage', tarnmuster:'camouflage pattern', tarnstoff:'camouflage fabric', textur:'texture', muster:'pattern', magazin:'magazine', pistole:'pistol', gewehr:'rifle', waffe:'weapon', griff:'grip', lauf:'barrel', schlitten:'slide', visier:'sights', schaft:'stock',
+  schal:'scarf', maske:'mask', weste:'vest', helm:'helmet', uniform:'uniform', hose:'trousers', jacke:'jacket', stiefel:'boots', tasche:'pouch', rucksack:'backpack', handschuhe:'gloves', mütze:'beanie', brille:'glasses', glas:'glass',
+  für:'for', aus:'made of', mit:'with', und:'and', ohne:'without', die:'', der:'', das:'', eine:'a', ein:'a', einer:'a', mach:'', mache:'', erstelle:'' };
+function toEN(t){
+  var orig=t, out=t.replace(/[A-Za-zÄÖÜäöüß]+/g, function(w){ var k=w.toLowerCase(); return Object.prototype.hasOwnProperty.call(DE_EN,k) ? DE_EN[k] : w; }).replace(/\s+/g,' ').trim();
+  return out===orig ? orig : out+' (German: '+orig+')';
+}
+function readable(n){ return String(n||'').replace(/\.[a-z0-9]+$/i,'').replace(/_(co|ca)$/i,'').replace(/^(mpp|dz|a3|cup|rhs)_/i,'').replace(/[_\-]+/g,' ').trim(); }
+function partContext(f, m){ var mn=readable(f.name), pn=readable(m.tex?MK.baseName(m.tex):m.name); return mn+(pn && !/^ohne textur/i.test(pn) && pn.toLowerCase()!==mn.toLowerCase() ? ' – part "'+pn+'"' : ''); }
+function missingMats(f){
+  if (!f || !f.model) return [];
+  var li=f.lodPick!=null?f.lodPick:MK.defaultLod(f.model);
+  return MK.collectMaterials(f.model,[li]).list.filter(function(m){ return !m.color && !texFor(f,m.key,m.tex); });
+}
 var polliNext=0;
-async function genPolli(prompt, size, seamless){
+async function genPolli(prompt, size, seamless, ctx){
   var wait=polliNext-Date.now();
-  if (wait>0) throw new Error('Die kostenlose Online-KI erlaubt 1 Bild alle 15 Sekunden – noch '+Math.ceil(wait/1000)+' s warten.');
+  if (wait>0){ $('aiMsg').textContent='Kurze Pause (kostenloser Zugang) – noch '+Math.ceil(wait/1000)+' s …'; await new Promise(function(r){ setTimeout(r, wait); }); $('aiMsg').textContent='Die KI malt …'; }
   polliNext=Date.now()+15500;
-  var p='seamless tileable texture, flat top-down albedo map, evenly lit, no shadows, no objects, no text, fills whole image: '+prompt+(seamless?', seamless pattern':'');
+  var p='high quality game texture, PBR albedo base color map, '+(seamless?'seamless tileable, ':'')+'flat lay top-down orthographic view, uniform soft lighting, no shadows, no perspective, no objects, no text, no watermark, highly detailed surface filling the whole image. Material: '+toEN(prompt)+(ctx?'. Used on: '+ctx:'');
   var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(p)+'?width='+size+'&height='+size+'&nologo=true&model=flux&seed='+((Math.random()*1e9)|0);
   var u8, mime='image/jpeg';
   if (mk && mk.httpGetImage){ var r=await mk.httpGetImage(url); if (!r.ok) throw new Error('Online-KI antwortet mit Fehler '+r.status+' – später nochmal versuchen.'); u8=b64ToU8(r.data); mime=r.type||mime; }
@@ -2219,30 +2241,41 @@ async function genGemini(prompt, seamless, useUV){
   var mime=imgPart.mimeType||imgPart.mime_type||'image/png', u8=b64ToU8(imgPart.data);
   return { img:await decodeImageBytes(u8), url:'data:'+mime+';base64,'+imgPart.data, mime:mime, u8:u8 };
 }
+async function genFor(f, m, prompt, size, seamless, src){
+  var r = src==='builtin' ? await genBuiltin(prompt, size) : src==='polli' ? await genPolli(prompt, size, seamless, partContext(f, m)) : await genGemini(prompt+' (for '+partContext(f,m)+')', seamless, $('aiUV').checked);
+  ai.n++;
+  var ext = /jpe?g/.test(r.mime) ? '.jpg' : '.png';
+  var name=(src==='builtin'?'gen_':'ki_')+MK.safeName(m.name)+'_'+ai.n+ext;
+  var it=libAdd({ name:name, file:new File([r.u8], name, { type:r.mime }) }, true); it.img=r.img;
+  f.override=f.override||{}; f.override[m.key]={ img:r.img, name:name, ai:true };
+  if (f===selected) refreshView();
+  hx('texgen '+name+' '+r.img.width+'x'+r.img.height+' ✓');
+  return { r:r, name:name };
+}
 $('aiGo').onclick=async function(){
   if (ai.busy || !ai.f) return;
   var prompt=$('aiPrompt').value.trim(), msg=$('aiMsg');
   if (!prompt){ msg.style.color=''; msg.textContent='Bitte kurz beschreiben, was drauf soll.'; return; }
   ai.f.aiPrompts=ai.f.aiPrompts||{}; ai.f.aiPrompts[ai.m.key]=prompt;
   var seamless=$('aiSeamless').checked, size=$('ai2k').checked?2048:1024, src=S.aiSource;
+  var jobs=[ai.m]; if ($('aiAll').checked && $('aiAllRow').style.display!=='none') jobs=jobs.concat(missingMats(ai.f).filter(function(x){ return x.key!==ai.m.key; }));
   ai.busy=true; var btn=this; btn.disabled=true; btn.textContent='Erstellt …';
-  msg.style.color=''; msg.textContent= src==='builtin' ? 'Wird erzeugt …' : 'Die KI malt … (meist 5–30 Sekunden)';
-  hx('texgen source='+src+' prompt="'+prompt.slice(0,60)+'"'); hxBurst(src==='builtin'?2000:8000);
+  msg.style.color=''; hxBurst(src==='builtin'?2000:8000);
+  var done=0, last=null;
   try {
-    var r = src==='builtin' ? await genBuiltin(prompt, size) : src==='polli' ? await genPolli(prompt, size, seamless) : await genGemini(prompt, seamless, $('aiUV').checked);
-    ai.n++;
-    var ext = /jpe?g/.test(r.mime) ? '.jpg' : '.png';
-    var name=(src==='builtin'?'gen_':'ki_')+MK.safeName(ai.m.name)+'_'+ai.n+ext;
-    var it=libAdd({ name:name, file:new File([r.u8], name, { type:r.mime }) }, true); it.img=r.img;
-    ai.f.override=ai.f.override||{}; ai.f.override[ai.m.key]={ img:r.img, name:name, ai:true };
-    if (ai.f===selected) refreshView();
-    $('aiImg').style.backgroundImage='url('+r.url+')';
-    $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+r.img.width+' × '+r.img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Nochmal <b>Erstellen</b> gibt eine neue Variante. Alle Versuche findest du im Textur-Browser.';
-    $('aiInfo').querySelector('b').textContent=name;
-    $('aiOut').style.display='flex';
-    msg.style.color='var(--green)'; msg.textContent='✓ Fertig';
-    hx('texgen '+name+' '+r.img.width+'x'+r.img.height+' ✓');
-  } catch(e){ msg.style.color='var(--red)'; msg.textContent=clean(e); hx('texgen.error '+clean(e),'e'); }
+    for (var i=0;i<jobs.length;i++){
+      if (!$('aiDlg').classList.contains('on') && i>0) break;
+      msg.style.color=''; msg.textContent=(jobs.length>1?'Teil '+(i+1)+' von '+jobs.length+' ('+jobs[i].name+'): ':'')+(src==='builtin'?'wird erzeugt …':'die KI malt … (meist 5–30 Sekunden)');
+      hx('texgen source='+src+' part='+jobs[i].name+' prompt="'+prompt.slice(0,50)+'"');
+      last=await genFor(ai.f, jobs[i], prompt, size, seamless, src); done++;
+      if (i===0){
+        $('aiImg').style.backgroundImage='url('+last.r.url+')';
+        $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+last.r.img.width+' × '+last.r.img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Nochmal <b>Erstellen</b> gibt eine neue Variante. Alle Versuche findest du im Textur-Browser.';
+        $('aiInfo').querySelector('b').textContent=last.name; $('aiOut').style.display='flex';
+      }
+    }
+    msg.style.color='var(--green)'; msg.textContent='✓ Fertig'+(jobs.length>1?' – '+done+' von '+jobs.length+' Teilen':'');
+  } catch(e){ msg.style.color='var(--red)'; msg.textContent=(done?done+' Teil(e) fertig, dann: ':'')+clean(e); hx('texgen.error '+clean(e),'e'); }
   ai.busy=false; btn.disabled=false; btn.textContent='✨ Erstellen';
 };
 
