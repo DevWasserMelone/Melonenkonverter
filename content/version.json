@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "date": "2026-11-22",
-  "changelog": ""
+  "changelog": "🛠 Verbessert\n• Stabiler bei beschädigten oder ungewöhnlichen Dateien\n• Verständlichere Fehlermeldungen"
 }
