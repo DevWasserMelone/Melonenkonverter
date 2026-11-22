@@ -263,6 +263,27 @@ ipcMain.handle('a:findTex', (e, p3d, tex) => {
   return searchByName(here, name, 3, { n: 20000 }) || searchByName(path.dirname(here), name, 3, { n: 20000 });
 });
 
+// Texturen rund um ein Modell auflisten (für automatische Suche und Textur-Browser)
+ipcMain.handle('a:listTex', (e, file, levels) => {
+  const exts = /\.(paa|pac|png|jpe?g|bmp|webp)$/i, out = [], seen = new Set();
+  let dir = path.dirname(file), budget = { n: 30000 };
+  const roots = [];
+  for (let i = 0; i <= (levels == null ? 2 : levels); i++) { roots.push(dir); const up = path.dirname(dir); if (up === dir) break; dir = up; }
+  function walk(d, depth) {
+    if (depth < 0 || budget.n <= 0 || out.length >= 4000) return;
+    let list; try { list = fs.readdirSync(d, { withFileTypes: true }); } catch (x) { return; }
+    for (const it of list) {
+      budget.n--;
+      const full = path.join(d, it.name);
+      if (it.isFile() && exts.test(it.name) && !seen.has(full.toLowerCase())) { seen.add(full.toLowerCase()); out.push(full); }
+    }
+    for (const it of list) if (it.isDirectory() && !it.name.startsWith('.') && !/^(node_modules|\$recycle\.bin|windows|program files.*|appdata)$/i.test(it.name)) walk(path.join(d, it.name), depth - 1);
+  }
+  // erst nah am Modell, dann weiter oben (flacher)
+  roots.forEach((r, i) => walk(r, 4 - i));
+  return out;
+});
+
 // ---------- Ordner überwachen ----------
 function stopWatch() { if (watcher) { try { watcher.close(); } catch (e) {} watcher = null; } }
 ipcMain.handle('a:watch', (e, dir) => {
