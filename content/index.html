@@ -119,8 +119,8 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
 #ctx{position:fixed;display:none;z-index:210;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px;min-width:190px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
 #ctx div{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:12.5px}
 #ctx div:hover{background:rgba(70,181,98,.15)} #ctx div.dis{opacity:.4;pointer-events:none} #ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
-#help,#blGuide{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
-#help.on,#blGuide.on{display:flex}
+#help,#blGuide,#aiDlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
+#help.on,#blGuide.on,#aiDlg.on{display:flex}
 .hbox.guide{width:480px;max-height:90vh;overflow:auto}
 .guide .lead{color:var(--dim);margin:0 0 10px;font-size:12.5px}
 .guide .step{display:flex;gap:10px;margin:10px 0;font-size:12.5px;line-height:1.5}
@@ -213,6 +213,11 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       <div class="path" id="bridgePath">Mit dem Add-on landen Modelle per „An Blender“ direkt mit Texturen in Blender.</div>
       <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
 
+      <h3>KI-Texturen</h3>
+      <div class="row"><label class="t">Gemini-API-Schlüssel</label><input type="password" id="aiKey" placeholder="AIza…" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none"></div>
+      <div class="path">Kostenlos erstellen unter aistudio.google.com/apikey · bleibt nur auf deinem PC gespeichert</div>
+      <div class="row" style="margin-top:8px"><label class="t">Modell</label><select id="aiModel"><option value="gemini-3.1-flash-image">Nano Banana 2 (empfohlen)</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite (schnell, günstig)</option><option value="gemini-3-pro-image">Nano Banana Pro (beste Qualität)</option></select></div>
+
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
       <label class="chk"><input type="checkbox" id="optSplit" checked><span>Pro Textur ein eigenes Objekt<small>In Blender heißt jedes Teil wie seine Textur, z. B. „modell__helm_co“</small></span></label>
@@ -241,6 +246,22 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 <div class="step"><span class="n">7</span><div>Hier im Konverter ein Modell wählen und auf <b>„An Blender“</b> klicken (oder <b>Strg + B</b>) – es erscheint automatisch in Blender.</div></div>
 <div class="hint" style="margin-top:6px">Add-on aktualisieren: altes Add-on in den Blender-Einstellungen entfernen, neu installieren und Blender neu starten.</div>
 <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" id="gClose">Schließen</button><button class="btn main" id="gDone">Fertig eingerichtet</button></div>
+</div></div>
+<div id="aiDlg"><div class="hbox guide" style="width:560px">
+<h2>✨ Textur erstellen für <span id="aiMat"></span></h2>
+<p class="lead">Beschreib kurz, wie das Teil aussehen soll – z. B. „abgenutztes schwarzes Metall mit Kratzern“, „Multicam-Tarnstoff“, „altes Leder braun“.</p>
+<textarea id="aiPrompt" rows="3" placeholder="Was soll drauf?" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px;outline:none;resize:vertical"></textarea>
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0">
+  <label class="chk"><input type="checkbox" id="aiSeamless" checked><span>Nahtlos kachelbar<small>Für Stoff, Metall, Holz – wiederholt sich ohne Kanten</small></span></label>
+  <label class="chk"><input type="checkbox" id="aiUV"><span>UV-Layout als Vorlage<small>Die KI bekommt die Form der Teile mit – für Logos/Details an bestimmten Stellen</small></span></label>
+  <label class="chk"><input type="checkbox" id="ai2k"><span>2K statt 1K<small>Schärfer, dauert länger</small></span></label>
+</div>
+<div id="aiOut" style="display:none;gap:12px;align-items:flex-start;margin:6px 0">
+  <div id="aiImg" style="width:180px;height:180px;flex:none;border-radius:6px;border:1px solid var(--line);background:#0d141d center/cover no-repeat"></div>
+  <div id="aiInfo" style="font-size:12px;color:var(--dim);line-height:1.5"></div>
+</div>
+<div id="aiMsg" style="font-size:12px;min-height:16px;margin:4px 0"></div>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" id="aiClose">Schließen</button><button class="btn main" id="aiGo">✨ Erstellen</button></div>
 </div></div>
 <div id="help"><div class="hbox"><h2>Tastenkürzel</h2>
 <table>
@@ -1235,7 +1256,7 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var S = { aiModel:'gemini-3.1-flash-image', aiKey:'', v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
 var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
 Object.assign(S, saved);
 if (!(saved.v>=3)){ S.auto=false; S.v=3; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
@@ -1585,7 +1606,7 @@ function removeFile(f){
 // ---------- Tastenkürzel ----------
 window.addEventListener('keydown',function(e){
   if (e.key==='F1'){ e.preventDefault(); $('help').classList.toggle('on'); return; }
-  if (e.key==='Escape' && ($('help').classList.contains('on')||$('blGuide').classList.contains('on'))){ $('help').classList.remove('on'); $('blGuide').classList.remove('on'); return; }
+  if (e.key==='Escape' && ($('help').classList.contains('on')||$('blGuide').classList.contains('on')||$('aiDlg').classList.contains('on'))){ $('help').classList.remove('on'); $('blGuide').classList.remove('on'); $('aiDlg').classList.remove('on'); return; }
   if (tb.open || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   var k=e.key.toLowerCase();
   if (e.ctrlKey && k==='o'){ e.preventDefault(); drop.onclick(); }
@@ -1720,6 +1741,7 @@ function renderMats(f, li){
     var st=document.createElement('div'); st.className='ms';
     var state=document.createElement('span');
     if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name+(ov.variant>1?' (1 von '+ov.variant+' Farben – klicken zum Wechseln)':''); }
+    else if (ov && ov.ai){ state.className='ok'; state.textContent='✨ '+ov.name; }
     else if (ov){ state.className='ok'; state.textContent='✓ '+ov.name; }
     else if (img && img.rgba){ state.className='ok'; state.textContent='✓ Textur gefunden'; }
     else if (m.color){ state.textContent='Farbe'; }
@@ -1727,7 +1749,8 @@ function renderMats(f, li){
     else { state.className='no'; state.textContent='ohne Textur'; }
     var b=document.createElement('button'); b.textContent= ov ? 'ändern' : 'zuweisen'; b.title='Textur für dieses Teil wählen (PAA, PNG, JPG …)';
     b.onclick=function(){ texTarget={f:f,key:m.key}; $('texIn').click(); };
-    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b);
+    var ai=document.createElement('button'); ai.textContent='✨ KI'; ai.title='Textur per Prompt von der KI erstellen lassen'; ai.onclick=function(){ openAI(f, m); };
+    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b); st.appendChild(ai);
     if (ov){ var x=document.createElement('button'); x.textContent='✕'; x.title='Zuweisung entfernen'; x.onclick=function(){ delete f.override[m.key]; refreshView(); }; st.appendChild(x); }
     info.appendChild(n); info.appendChild(st);
     d.title=(m.tex||'keine Textur im Modell')+(m.mat?'\n'+m.mat:'')+'\nKlicken zum Durchsuchen';
@@ -1913,6 +1936,93 @@ window.addEventListener('keydown',function(e){
   else if (e.key==='Enter'){ e.preventDefault(); closeTB(true); }
 });
 $('tbStrip').addEventListener('wheel',function(e){ if (Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); this.scrollLeft+=e.deltaY; } },{passive:false});
+
+// ---------- KI-Texturen (Gemini) ----------
+$('aiKey').value=S.aiKey||''; $('aiModel').value=S.aiModel;
+$('aiKey').onchange=function(){ S.aiKey=this.value.trim(); save(); };
+$('aiModel').onchange=function(){ S.aiModel=this.value; save(); };
+var ai={ f:null, m:null, busy:false, n:0 };
+function openAI(f, m){
+  ai.f=f; ai.m=m;
+  $('aiMat').textContent=m.name; $('aiMsg').textContent=''; $('aiOut').style.display='none';
+  $('aiPrompt').value = (f.aiPrompts && f.aiPrompts[m.key]) || '';
+  $('aiDlg').classList.add('on'); setTimeout(function(){ $('aiPrompt').focus(); }, 50);
+  if (!S.aiKey) $('aiMsg').innerHTML='<span style="color:var(--yellow)">Trag zuerst rechts unter <b>KI-Texturen</b> deinen Gemini-API-Schlüssel ein.</span>';
+}
+$('aiClose').onclick=function(){ $('aiDlg').classList.remove('on'); };
+$('aiPrompt').onkeydown=function(e){ if (e.key==='Enter' && (e.ctrlKey||!e.shiftKey)){ e.preventDefault(); $('aiGo').click(); } };
+function uvLayout(f, key, size){
+  var li=f.lodPick!=null?f.lodPick:MK.defaultLod(f.model), lod=f.model.lods[li];
+  var c=document.createElement('canvas'); c.width=c.height=size; var g=c.getContext('2d');
+  g.fillStyle='#000'; g.fillRect(0,0,size,size); g.strokeStyle='#fff'; g.lineWidth=Math.max(1,size/700); g.beginPath();
+  lod.faces.forEach(function(fc){ if (MK.materialKey(fc)!==key) return;
+    var v=fc.v; for (var i=0;i<v.length;i++){ var a=v[i], b=v[(i+1)%v.length];
+      var ax=((a.u%1)+1)%1*size, ay=((a.v%1)+1)%1*size, bx=((b.u%1)+1)%1*size, by=((b.v%1)+1)%1*size;
+      if (Math.abs(ax-bx)>size/2||Math.abs(ay-by)>size/2) continue; g.moveTo(ax,ay); g.lineTo(bx,by); } });
+  g.stroke();
+  return c.toDataURL('image/png').split(',')[1];
+}
+$('aiGo').onclick=async function(){
+  if (ai.busy || !ai.f) return;
+  var prompt=$('aiPrompt').value.trim(), msg=$('aiMsg');
+  if (!S.aiKey){ msg.innerHTML='<span style="color:var(--yellow)">Kein API-Schlüssel eingetragen (rechts unter KI-Texturen).</span>'; return; }
+  if (!prompt){ msg.textContent='Bitte kurz beschreiben, was drauf soll.'; return; }
+  ai.f.aiPrompts=ai.f.aiPrompts||{}; ai.f.aiPrompts[ai.m.key]=prompt;
+  var seamless=$('aiSeamless').checked, useUV=$('aiUV').checked;
+  var full='Create a texture map image (albedo / base color only) for a 3D game model. '+
+    'Flat, top-down, evenly lit, no perspective, no shadows, no lighting, no reflections, no visible objects, no text, no watermark, no border or frame. '+
+    'The material must fill the whole square image edge to edge. '+
+    (seamless?'The texture must tile seamlessly: the left edge must continue on the right edge and the top on the bottom. ':'')+
+    (useUV?'The attached black image with white lines is the UV layout of this model part. Paint the texture so it fits inside these UV areas, but do NOT draw the white lines themselves and keep the background filled with the material. ':'')+
+    'Description of the material (may be German): '+prompt;
+  var parts=[{ text: full }];
+  if (useUV) parts.push({ inline_data:{ mime_type:'image/png', data: uvLayout(ai.f, ai.m.key, 1024) } });
+  var cfg={ responseModalities:['IMAGE'], imageConfig:{ aspectRatio:'1:1' } };
+  if ($('ai2k').checked) cfg.imageConfig.imageSize='2K';
+  ai.busy=true; var btn=this; btn.disabled=true; btn.textContent='Erstellt …';
+  msg.style.color=''; msg.textContent='Die KI malt … (meist 5–20 Sekunden)';
+  hx('ai.request model='+S.aiModel+' prompt="'+prompt.slice(0,60)+'"'); hxBurst(8000);
+  try {
+    var url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.aiModel)+':generateContent';
+    var payload=JSON.stringify({ contents:[{ role:'user', parts:parts }], generationConfig: cfg }), res, j=null;
+    if (mk && mk.aiRequest){ var rr=await mk.aiRequest(url, S.aiKey, payload); res={ ok:rr.ok, status:rr.status }; j=rr.json; }
+    else {
+      try { res=await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': S.aiKey }, body: payload }); }
+      catch(x){ throw new Error('Keine Verbindung zu Google. Internet prüfen (oder Programm-Update installieren).'); }
+      try { j=await res.json(); } catch(x){}
+    }
+    if (!res.ok){
+      var em=(j && j.error && j.error.message) || ('Fehler '+res.status);
+      if (res.status===400 && /API key/i.test(em)) em='Der API-Schlüssel ist ungültig.';
+      else if (res.status===403) em='Der Schlüssel hat keinen Zugriff auf dieses Modell. ('+em+')';
+      else if (res.status===429) em='Limit erreicht – kurz warten oder bei Google das Kontingent prüfen.';
+      else if (res.status===404) em='Modell nicht gefunden – wähle rechts ein anderes Modell.';
+      throw new Error(em);
+    }
+    var cand=j && j.candidates && j.candidates[0], ps=(cand && cand.content && cand.content.parts)||[], imgPart=null, txt='';
+    ps.forEach(function(p){ var d=p.inlineData||p.inline_data; if (d && d.data && !imgPart) imgPart=d; else if (p.text) txt+=p.text; });
+    if (!imgPart){
+      var why = (cand && cand.finishReason) || (j && j.promptFeedback && j.promptFeedback.blockReason) || '';
+      throw new Error('Die KI hat kein Bild geliefert'+(why?' ('+why+')':'')+(txt?': '+txt.slice(0,160):'')+'. Formuliere den Prompt etwas anders.');
+    }
+    var bin=atob(imgPart.data), u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    var img=await decodeImageBytes(u8);
+    ai.n++;
+    var name='ki_'+MK.safeName(ai.m.name)+'_'+ai.n+'.png';
+    var it=libAdd({ name:name, file:new File([u8], name, { type:imgPart.mimeType||imgPart.mime_type||'image/png' }) }, true); it.img=img;
+    ai.f.override=ai.f.override||{}; ai.f.override[ai.m.key]={ img:img, name:name, ai:true };
+    if (ai.f===selected){ refreshView(); }
+    $('aiImg').style.backgroundImage='url(data:'+(imgPart.mimeType||imgPart.mime_type||'image/png')+';base64,'+imgPart.data+')';
+    $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+img.width+' × '+img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Prompt ändern und nochmal <b>Erstellen</b>. Alle Versuche findest du auch im Textur-Browser.';
+    $('aiInfo').querySelector('b').textContent=name;
+    $('aiOut').style.display='flex';
+    msg.style.color='var(--green)'; msg.textContent='✓ Fertig';
+    hx('ai.response '+name+' '+img.width+'x'+img.height+' ✓');
+  } catch(e){
+    msg.style.color='var(--red)'; msg.textContent=clean(e); hx('ai.error '+clean(e),'e');
+  }
+  ai.busy=false; btn.disabled=false; btn.textContent='✨ Erstellen';
+};
 
 // ---------- Bildansicht für Texturen ----------
 var imgCache=null;
