@@ -111,6 +111,20 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
 .tbempty{color:var(--dim);font-size:12px;padding:30px 10px}
 .mat{cursor:pointer}
 .mat .au{color:#d7c23b}
+#toasts{position:fixed;left:50%;top:74px;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:560px;animation:tin .2s ease-out;transition:opacity .3s,transform .3s}
+.toast.ok{border-color:var(--green)} .toast.err{border-color:var(--red);color:#ffb3b3}
+.toast.out{opacity:0;transform:translateY(-6px)}
+@keyframes tin{from{opacity:0;transform:translateY(-8px)}}
+#ctx{position:fixed;display:none;z-index:210;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px;min-width:190px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
+#ctx div{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:12.5px}
+#ctx div:hover{background:rgba(70,181,98,.15)} #ctx div.dis{opacity:.4;pointer-events:none} #ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+#help{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
+#help.on{display:flex}
+.hbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:380px}
+.hbox h2{margin:0 0 10px;font-size:15px} .hbox table{border-collapse:collapse;margin-bottom:12px} .hbox td{padding:4px 14px 4px 0;font-size:12.5px} .hbox td:first-child{color:var(--green);white-space:nowrap}
+.btn.blend{border-color:#e87d0d;color:#ffb15c} .btn.blend:hover{background:rgba(232,125,13,.15)}
+body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 ::-webkit-scrollbar{width:9px} ::-webkit-scrollbar-thumb{background:#2f343b;border-radius:5px}
 </style>
 </head>
@@ -120,6 +134,7 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
   <h1 class="glitch">Melonenkonverter</h1><span class="ver" id="ver">–</span>
   <div class="sp"></div>
   <div class="snowridge" style="position:absolute;left:0;right:0;bottom:-10px;z-index:5"></div>
+  <button class="btn" id="helpBtn" title="Tastenkürzel (F1)" style="padding:4px 10px">?</button>
   <div class="watch" title="Neue P3D-Dateien in diesem Ordner werden sofort umgewandelt"><span class="dot" id="wDot"></span><span id="wTxt">Ordner-Automatik aus</span></div>
 </header>
 <main>
@@ -140,7 +155,7 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
       <canvas id="view"></canvas>
       <canvas id="img2d" style="position:absolute;inset:0;width:100%;height:100%;display:none"></canvas>
       <div id="viewInfo"></div>
-      <div id="viewEmpty">Wähle links eine Datei für die Vorschau</div>
+      <div id="viewEmpty"><div style="text-align:center;line-height:1.7"><div style="font-size:15px;color:var(--text);margin-bottom:6px">Zieh eine P3D-, OBJ- oder PAA-Datei ins Fenster</div>Danach siehst du hier die Vorschau mit Texturen.<br>Mit <b>An Blender</b> landet das Modell direkt in Blender · <b>F1</b> zeigt alle Tastenkürzel</div></div>
       <div id="matPanel"><div class="mphead"><span>Materialien</span><span id="matCount"></span></div><div id="matList"></div></div>
       <input type="file" id="texIn" accept=".paa,.pac,.png,.jpg,.jpeg,.tga,.bmp,.webp" hidden>
       <div id="tb">
@@ -148,7 +163,7 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
         <div id="tbStrip"></div>
       </div>
       <input type="file" id="tbDir" webkitdirectory multiple hidden>
-      <div id="viewHelp">Linke Maus drehen · Rechte Maus verschieben · Mausrad zoomen · F zentrieren</div>
+      <div id="viewHelp">Linke Maus drehen · Rechte Maus verschieben · Mausrad zoomen · F zentrieren · Textur aufs Modell ziehen = zuweisen</div>
     </div>
     <div class="viewbar">
       <span style="color:var(--dim)">LOD</span>
@@ -156,7 +171,8 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
       <label class="chk" style="margin:0 0 0 6px;white-space:nowrap"><input type="checkbox" id="showBack">Rückseiten</label>
       <span class="sp"></span>
       <button class="btn" id="openOut" disabled title="Ordner öffnen">📂</button>
-      <button class="btn" id="saveAs" disabled>Speichern unter …</button>
+      <button class="btn" id="saveAs" disabled title="Speichern unter …">💾</button>
+      <button class="btn blend" id="toBlender" disabled title="An Blender senden (Strg + B)">An Blender</button>
       <button class="btn main snowcap" id="convertOne" disabled>Umwandeln</button>
     </div>
   </section>
@@ -164,7 +180,7 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
     <div class="colhead">Einstellungen</div>
     <div class="set">
       <h3>Automatik</h3>
-      <label class="chk"><input type="checkbox" id="optAuto" checked><span>Sofort umwandeln<small>Dateien werden direkt nach dem Reinziehen gespeichert</small></span></label>
+      <label class="chk"><input type="checkbox" id="optAuto"><span>Sofort umwandeln<small>Dateien werden direkt nach dem Reinziehen gespeichert</small></span></label>
       <div class="row" id="watchRow">
         <div style="display:flex;align-items:center;gap:8px"><button class="toggle" id="watchTgl"></button><span>Ordner überwachen</span></div>
         <div class="path" id="watchPath">Neue oder geänderte P3D-Dateien im gewählten Ordner werden automatisch umgewandelt.</div>
@@ -184,6 +200,11 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
         <select id="optLod"><option value="best">Beste Ansicht (empfohlen)</option><option value="vis">Alle Ansicht-LODs, je eine Datei</option><option value="all">Alle LODs in einer Datei</option></select>
       </div>
 
+      <h3>Blender</h3>
+      <button class="btn" id="addonBtn" style="width:100%">⬇ Blender-Add-on speichern</button>
+      <div class="path" id="bridgePath">Mit dem Add-on landen Modelle per „An Blender“ direkt mit Texturen in Blender.</div>
+      <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
+
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
       <label class="chk"><input type="checkbox" id="optSplit" checked><span>Pro Textur ein eigenes Objekt<small>In Blender heißt jedes Teil wie seine Textur, z. B. „modell__helm_co“</small></span></label>
@@ -198,6 +219,23 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
     </div>
   </section>
 </main>
+<div id="toasts"></div>
+<div id="ctx"></div>
+<div id="help"><div class="hbox"><h2>Tastenkürzel</h2>
+<table>
+<tr><td>Strg + O</td><td>Dateien öffnen</td></tr>
+<tr><td>Strg + Enter</td><td>Gewählte Datei umwandeln</td></tr>
+<tr><td>Strg + Umschalt + Enter</td><td>Alle angehakten umwandeln</td></tr>
+<tr><td>Strg + B</td><td>An Blender senden</td></tr>
+<tr><td>↑ / ↓</td><td>Durch die Liste gehen</td></tr>
+<tr><td>Leertaste</td><td>Haken setzen / entfernen</td></tr>
+<tr><td>Strg + A</td><td>Alle anhaken</td></tr>
+<tr><td>Entf</td><td>Gewählte Datei aus der Liste nehmen</td></tr>
+<tr><td>Strg + F</td><td>Suchen</td></tr>
+<tr><td>F</td><td>Modell zentrieren</td></tr>
+<tr><td>← / →</td><td>Im Textur-Browser blättern</td></tr>
+<tr><td>Rechtsklick</td><td>Menü auf einer Datei</td></tr>
+</table><button class="btn" id="helpClose">Schließen</button></div></div>
 <div id="term"></div>
 <footer><span class="log" id="log">Bereit.</span></footer>
 
@@ -1176,15 +1214,19 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { split:true, closed:{}, theme:'hacker', auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
-try { Object.assign(S, JSON.parse(localStorage.getItem('mk-settings') || '{}')); } catch(e){}
+var S = { v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
+Object.assign(S, saved);
+if (!(saved.v>=3)){ S.auto=false; S.v=3; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function save(){ try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function applyUI(){
   $('optAuto').checked=S.auto; $('optOut').value=S.out; $('optLod').value=S.lod; $('optMtl').checked=S.mtl;
   $('optPaa').checked=S.paa; $('optScale').value=S.scale; $('optFlip').checked=S.flip;
   $('outPath').textContent = S.out==='folder' ? (S.outDir || 'Noch kein Ordner gewählt') : S.out==='ask' ? 'Vor dem Speichern wird nach dem Ordner gefragt.' : '';
   $('outPick').style.display = (mk && S.out==='folder') ? 'block' : 'none';
-  if(!mk){ $('openOut').style.display='none'; $('saveAs').style.display='none'; $('outPath').textContent='Im Browser werden die Dateien als ZIP heruntergeladen.'; $('watchRow').style.display='none'; }
+  if (mk && mk.bridgeDir) mk.bridgeDir().then(function(d){ $('bridgePath').textContent='Verbindungsordner: '+d; });
+  else if (mk){ $('bridgePick').style.display='block'; $('bridgePath').textContent= S.bridgeDir ? 'Verbindungsordner: '+S.bridgeDir : 'Noch kein Verbindungsordner gewählt.'; }
+  if(!mk){ $('toBlender').style.display='none'; $('openOut').style.display='none'; $('saveAs').style.display='none'; $('outPath').textContent='Im Browser werden die Dateien als ZIP heruntergeladen.'; $('watchRow').style.display='none'; }
 }
 applyUI();
 $('optAuto').onchange=function(){ S.auto=this.checked; save(); };
@@ -1212,7 +1254,14 @@ function clean(e){
   return m;
 }
 // ---------- Statuszeile ----------
-function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); }
+var quiet=false;
+function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); if ((cls==='ok'&&!quiet)||cls==='err') toast(msg.replace(/^[✓✗] /,''), cls); }
+function toast(msg, cls, ms){
+  var box=$('toasts'), t=document.createElement('div'); t.className='toast '+(cls||'');
+  t.textContent=(cls==='ok'?'✓ ':cls==='err'?'✗ ':'')+msg; box.appendChild(t);
+  while (box.children.length>3) box.removeChild(box.firstChild);
+  setTimeout(function(){ t.classList.add('out'); setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 300); }, ms||3500);
+}
 function showErr(msg){
   var e=$('err'); e.style.display=msg?'flex':'none'; e.innerHTML='';
   if(!msg) return;
@@ -1246,7 +1295,17 @@ async function addEntries(entries){
     if (S.auto && (added[k].model || added[k].img)) await convert(added[k]);
   }
   batchDir=null;
-  if (added.length && (!selected || added.indexOf(selected)<0)) select(added[added.length-1]);
+  // neue Texturen: bereits geladene Modelle direkt damit bekleiden
+  var newTex = entries.some(function(e){ return isTexName(e.name); }), applied=0;
+  if (newTex){
+    for (var j=0;j<files.length;j++){
+      var mf=files[j]; if (!mf.model || added.indexOf(mf)>=0) continue;
+      var before=Object.keys(mf.override||{}).length; await autoAssign(mf); applied+=Object.keys(mf.override||{}).length-before;
+    }
+    if (applied) log('✓ '+applied+' Textur(en) automatisch aufs Modell gelegt', 'ok');
+  }
+  var keepModel = selected && selected.model && added.every(function(f){ return f.kind==='paa'; });
+  if (added.length && !keepModel && (!selected || added.indexOf(selected)<0)) select(added[added.length-1]);
   else if (selected) select(selected);
 }
 
@@ -1346,35 +1405,40 @@ function rgbaToPng(img){
 }
 
 var batchDir=null;
+async function buildOutputs(f){
+  var base = MK.safeName(MK.stripExt(f.name))+(f.kind==='obj'?'_neu':''), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
+  for (var s=0;s<sets.length;s++){
+    var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
+    var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
+    if (S.mtl){
+      for (var i=0;i<r.materials.length;i++){
+        var m=r.materials[i], ov=f.override&&f.override[m.key], img=ov ? ov.img : f.tex[m.tex];
+        if (img && img.rgba && (S.paa || ov)){
+          var png = MK.safeName(MK.stripExt(MK.baseName(ov ? ov.name : m.tex)))+'.png';
+          m.image=png; m.hasAlpha=img.hasAlpha;
+          if (!pngDone[png]){ pngDone[png]=1; out.push({ name:png, data: await rgbaToPng(img) }); }
+        } else if (m.tex && m.tex.charAt(0)!=='#') missing++;
+      }
+      out.push({ name:nm+'.mtl', data:MK.buildMTL(r.materials, nm) });
+    }
+    out.push({ name:nm+'.obj', data:r.obj });
+  }
+  return { out:out, base:base, missing:missing };
+}
+
 async function convert(f, dirOverride){
   if (f.kind==='paa') return convertPaa(f, dirOverride);
   if (!f.model) return;
   f.status='busy'; render(); hxBurst(2500); hxProgress('compile '+f.name);
   try {
-    var base = MK.safeName(MK.stripExt(f.name))+(f.kind==='obj'?'_neu':''), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
-    for (var s=0;s<sets.length;s++){
-      var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
-      var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
-      if (S.mtl){
-        for (var i=0;i<r.materials.length;i++){
-          var m=r.materials[i], ov=f.override&&f.override[m.key], img=ov ? ov.img : f.tex[m.tex];
-          if (img && img.rgba && (S.paa || ov)){
-            var png = MK.safeName(MK.stripExt(MK.baseName(ov ? ov.name : m.tex)))+'.png';
-            m.image=png; m.hasAlpha=img.hasAlpha;
-            if (!pngDone[png]){ pngDone[png]=1; out.push({ name:png, data: await rgbaToPng(img) }); }
-          } else if (m.tex && m.tex.charAt(0)!=='#') missing++;
-        }
-        out.push({ name:nm+'.mtl', data:MK.buildMTL(r.materials, nm) });
-      }
-      out.push({ name:nm+'.obj', data:r.obj });
-    }
+    var res=await buildOutputs(f), out=res.out, base=res.base, missing=res.missing;
     if (mk && f.path){
       var dir = dirOverride || await outDir(f);
       if (!dir){ f.status='wait'; render(); log('Speichern abgebrochen'); return; }
       await mk.writeFiles(dir, out);
       f.out = dir;
       if (f===selected) $('openOut').disabled=false;
-      log('✓ '+f.name+' → '+out.filter(function(o){return /\.obj$/.test(o.name);}).map(function(o){return o.name;}).join(', ')+(missing&&S.paa?' · '+missing+' Textur(en) nicht gefunden':''), 'ok');
+      log('✓ '+f.name+' gespeichert'+(missing&&S.paa?' · '+missing+' Textur(en) fehlen':''), 'ok');
     } else {
       var blob = MK.makeZip(out), a=document.createElement('a');
       a.href=URL.createObjectURL(blob); a.download=base+'_obj.zip'; a.click();
@@ -1385,6 +1449,46 @@ async function convert(f, dirOverride){
     out.forEach(function(o){ hx('write '+o.name+' ('+(o.data.length||0)+' bytes) ✓'); });
   } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err, 'err'); hx('ERROR '+f.err,'e'); }
   render(); if (f===selected) showErr(f.err);
+}
+
+// ---------- Blender-Verbindung ----------
+var ADDON_SRC = "bl_info = {\n    \"name\": \"Melonenkonverter Bridge\",\n    \"author\": \"DevWasserMelone\",\n    \"version\": (1, 0, 0),\n    \"blender\": (3, 6, 0),\n    \"location\": \"3D-Ansicht > Seitenleiste (N) > Melone\",\n    \"description\": \"Holt Modelle aus dem Melonenkonverter automatisch mit Texturen in Blender\",\n    \"category\": \"Import-Export\",\n}\n\nimport bpy\nimport os\nimport json\nimport time\nimport math\n\nTIMER_INTERVAL = 1.0\n_state = {\"last\": \"\", \"count\": 0, \"error\": \"\"}\n\n\ndef default_dir():\n    return os.path.join(os.path.expanduser(\"~\"), \"Melonenkonverter-Blender\")\n\n\ndef prefs():\n    try:\n        return bpy.context.preferences.addons[__name__].preferences\n    except Exception:\n        return None\n\n\ndef bridge_dir():\n    p = prefs()\n    d = (p.bridge_dir if p and p.bridge_dir else default_dir())\n    return bpy.path.abspath(d)\n\n\nclass MELONE_Prefs(bpy.types.AddonPreferences):\n    bl_idname = __name__\n\n    bridge_dir: bpy.props.StringProperty(\n        name=\"Verbindungsordner\",\n        description=\"Muss derselbe Ordner sein wie im Melonenkonverter unter Blender\",\n        subtype=\"DIR_PATH\",\n        default=default_dir(),\n    )\n    auto_import: bpy.props.BoolProperty(name=\"Automatisch importieren\", default=True)\n    smooth: bpy.props.BoolProperty(name=\"Gl\u00e4tten (Auto Smooth)\", default=True)\n    own_collection: bpy.props.BoolProperty(name=\"Eigene Collection pro Modell\", default=True)\n    focus: bpy.props.BoolProperty(name=\"Ansicht auf Modell zentrieren\", default=True)\n\n    def draw(self, context):\n        col = self.layout.column()\n        col.prop(self, \"bridge_dir\")\n        col.prop(self, \"auto_import\")\n        col.prop(self, \"smooth\")\n        col.prop(self, \"own_collection\")\n        col.prop(self, \"focus\")\n\n\n# ---------- Import ----------\n\ndef find_view3d():\n    wm = bpy.context.window_manager\n    for win in wm.windows:\n        for area in win.screen.areas:\n            if area.type == \"VIEW_3D\":\n                for region in area.regions:\n                    if region.type == \"WINDOW\":\n                        return win, area, region\n    win = wm.windows[0] if wm.windows else None\n    return win, None, None\n\n\ndef run_op(op, **kw):\n    win, area, region = find_view3d()\n    if win is None:\n        return op(**kw)\n    ctx = {\"window\": win, \"screen\": win.screen}\n    if area:\n        ctx[\"area\"] = area\n        ctx[\"region\"] = region\n    with bpy.context.temp_override(**ctx):\n        return op(**kw)\n\n\ndef pending_jobs():\n    root = bridge_dir()\n    jobs = []\n    if not os.path.isdir(root):\n        return jobs\n    for name in os.listdir(root):\n        d = os.path.join(root, name)\n        info = os.path.join(d, \"melone.json\")\n        if os.path.isdir(d) and os.path.isfile(info) and not os.path.exists(os.path.join(d, \".importiert\")):\n            jobs.append((os.path.getmtime(info), d, info))\n    jobs.sort()\n    return jobs\n\n\ndef make_smooth(objs):\n    for o in objs:\n        if o.type != \"MESH\":\n            continue\n        me = o.data\n        try:\n            me.shade_smooth()\n        except Exception:\n            me.polygons.foreach_set(\"use_smooth\", [True] * len(me.polygons))\n        if hasattr(me, \"use_auto_smooth\"):\n            me.use_auto_smooth = True\n            me.auto_smooth_angle = math.radians(40)\n        else:\n            try:\n                bpy.ops.object.select_all(action=\"DESELECT\")\n            except Exception:\n                pass\n            try:\n                with bpy.context.temp_override(object=o, active_object=o, selected_objects=[o], selected_editable_objects=[o]):\n                    bpy.ops.object.shade_auto_smooth(angle=math.radians(40))\n            except Exception:\n                pass\n\n\ndef import_job(folder, info_path):\n    p = prefs()\n    with open(info_path, \"r\", encoding=\"utf-8\") as fh:\n        info = json.load(fh)\n    name = info.get(\"name\", os.path.basename(folder))\n    files = info.get(\"obj\") or [f for f in os.listdir(folder) if f.lower().endswith(\".obj\")]\n    if isinstance(files, str):\n        files = [files]\n    before = set(bpy.data.objects)\n    for f in files:\n        path = os.path.join(folder, f)\n        if hasattr(bpy.ops.wm, \"obj_import\"):\n            run_op(bpy.ops.wm.obj_import, filepath=path, forward_axis=\"NEGATIVE_Z\", up_axis=\"Y\")\n        else:\n            run_op(bpy.ops.import_scene.obj, filepath=path, axis_forward=\"-Z\", axis_up=\"Y\")\n    new = [o for o in bpy.data.objects if o not in before]\n\n    if p is None or p.own_collection:\n        col = bpy.data.collections.new(name)\n        bpy.context.scene.collection.children.link(col)\n        for o in new:\n            for c in list(o.users_collection):\n                c.objects.unlink(o)\n            col.objects.link(o)\n\n    if p is None or p.smooth:\n        make_smooth(new)\n\n    try:\n        for o in bpy.context.view_layer.objects:\n            o.select_set(False)\n        for o in new:\n            o.select_set(True)\n        if new:\n            bpy.context.view_layer.objects.active = new[0]\n        if (p is None or p.focus) and new:\n            run_op(bpy.ops.view3d.view_selected)\n    except Exception:\n        pass\n\n    open(os.path.join(folder, \".importiert\"), \"w\").close()\n    _state[\"last\"] = name\n    _state[\"count\"] += 1\n    _state[\"error\"] = \"\"\n    return name, len(new)\n\n\ndef poll_timer():\n    p = prefs()\n    if p is None or not p.auto_import:\n        return TIMER_INTERVAL\n    try:\n        for _, folder, info in pending_jobs():\n            # kurz warten, falls der Konverter noch schreibt\n            if time.time() - os.path.getmtime(info) < 0.5:\n                continue\n            import_job(folder, info)\n    except Exception as e:\n        _state[\"error\"] = str(e)\n    return TIMER_INTERVAL\n\n\n# ---------- Bedienung ----------\n\nclass MELONE_OT_import_now(bpy.types.Operator):\n    bl_idname = \"melone.import_now\"\n    bl_label = \"Jetzt importieren\"\n    bl_description = \"Alle neuen Modelle aus dem Melonenkonverter importieren\"\n\n    def execute(self, context):\n        jobs = pending_jobs()\n        if not jobs:\n            self.report({\"INFO\"}, \"Keine neuen Modelle\")\n            return {\"FINISHED\"}\n        for _, folder, info in jobs:\n            try:\n                name, n = import_job(folder, info)\n                self.report({\"INFO\"}, \"Importiert: %s (%d Objekte)\" % (name, n))\n            except Exception as e:\n                self.report({\"ERROR\"}, str(e))\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_reimport_last(bpy.types.Operator):\n    bl_idname = \"melone.reimport_last\"\n    bl_label = \"Letztes erneut laden\"\n    bl_description = \"Das zuletzt gesendete Modell noch einmal importieren\"\n\n    def execute(self, context):\n        root = bridge_dir()\n        if not os.path.isdir(root):\n            self.report({\"WARNING\"}, \"Verbindungsordner nicht gefunden\")\n            return {\"CANCELLED\"}\n        cands = [os.path.join(root, d) for d in os.listdir(root) if os.path.isfile(os.path.join(root, d, \"melone.json\"))]\n        if not cands:\n            self.report({\"INFO\"}, \"Noch nichts gesendet\")\n            return {\"CANCELLED\"}\n        last = max(cands, key=lambda d: os.path.getmtime(os.path.join(d, \"melone.json\")))\n        name, n = import_job(last, os.path.join(last, \"melone.json\"))\n        self.report({\"INFO\"}, \"Importiert: %s\" % name)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_open_folder(bpy.types.Operator):\n    bl_idname = \"melone.open_folder\"\n    bl_label = \"Ordner \u00f6ffnen\"\n\n    def execute(self, context):\n        d = bridge_dir()\n        os.makedirs(d, exist_ok=True)\n        bpy.ops.wm.path_open(filepath=d)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_cleanup(bpy.types.Operator):\n    bl_idname = \"melone.cleanup\"\n    bl_label = \"Alte Sendungen l\u00f6schen\"\n    bl_description = \"Bereits importierte Modelle aus dem Verbindungsordner entfernen (nicht aus der Szene)\"\n\n    def execute(self, context):\n        import shutil\n        root, n = bridge_dir(), 0\n        if os.path.isdir(root):\n            for d in os.listdir(root):\n                full = os.path.join(root, d)\n                if os.path.isdir(full) and os.path.exists(os.path.join(full, \".importiert\")):\n                    shutil.rmtree(full, ignore_errors=True)\n                    n += 1\n        self.report({\"INFO\"}, \"%d alte Sendungen gel\u00f6scht\" % n)\n        return {\"FINISHED\"}\n\n\nclass MELONE_PT_panel(bpy.types.Panel):\n    bl_label = \"Melonenkonverter\"\n    bl_space_type = \"VIEW_3D\"\n    bl_region_type = \"UI\"\n    bl_category = \"Melone\"\n\n    def draw(self, context):\n        p = prefs()\n        lay = self.layout\n        ok = os.path.isdir(bridge_dir())\n        box = lay.box()\n        box.label(text=\"Verbunden\" if ok else \"Wartet auf Konverter \u2026\", icon=\"LINKED\" if ok else \"UNLINKED\")\n        if _state[\"last\"]:\n            box.label(text=\"Zuletzt: \" + _state[\"last\"], icon=\"IMPORT\")\n        if _state[\"error\"]:\n            box.label(text=_state[\"error\"][:60], icon=\"ERROR\")\n        if p:\n            lay.prop(p, \"auto_import\")\n            lay.prop(p, \"smooth\")\n            lay.prop(p, \"own_collection\")\n        lay.operator(\"melone.import_now\", icon=\"IMPORT\")\n        lay.operator(\"melone.reimport_last\", icon=\"FILE_REFRESH\")\n        row = lay.row(align=True)\n        row.operator(\"melone.open_folder\", icon=\"FILE_FOLDER\")\n        row.operator(\"melone.cleanup\", icon=\"TRASH\", text=\"\")\n        if p:\n            lay.prop(p, \"bridge_dir\", text=\"\")\n\n\nclasses = (MELONE_Prefs, MELONE_OT_import_now, MELONE_OT_reimport_last, MELONE_OT_open_folder, MELONE_OT_cleanup, MELONE_PT_panel)\n\n\ndef register():\n    for c in classes:\n        bpy.utils.register_class(c)\n    if not bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.register(poll_timer, first_interval=2.0, persistent=True)\n\n\ndef unregister():\n    if bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.unregister(poll_timer)\n    for c in reversed(classes):\n        bpy.utils.unregister_class(c)\n\n\nif __name__ == \"__main__\":\n    register()\n";
+async function bridgeRoot(){
+  if (mk && mk.bridgeDir) return await mk.bridgeDir();
+  if (!S.bridgeDir){
+    toast('Wähle einmal den Verbindungsordner. Im Blender-Add-on muss derselbe Ordner eingestellt sein.');
+    var d=await mk.pickFolder(); if (!d) return null; S.bridgeDir=d; save(); applyUI();
+  }
+  return S.bridgeDir;
+}
+async function sendToBlender(f){
+  if (!mk){ toast('„An Blender senden“ geht nur im Programm, nicht im Browser.','err'); return; }
+  if (!f || !f.model){ toast('Wähle zuerst links ein Modell aus.','err'); return; }
+  var root=await bridgeRoot(); if (!root) return;
+  f.status='busy'; render(); hxBurst(2000); hxProgress('bridge '+f.name);
+  try {
+    var r=await buildOutputs(f), sep=root.indexOf('\\')>=0?'\\':'/';
+    var stamp=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
+    var dir=root+sep+r.base+'_'+stamp;
+    var objs=r.out.filter(function(o){ return /\.obj$/.test(o.name); }).map(function(o){ return o.name; });
+    await mk.writeFiles(dir, r.out);
+    await mk.writeFiles(dir, [{ name:'melone.json', data: JSON.stringify({ name:r.base, obj:objs, source:f.name, created:new Date().toISOString() }) }]);
+    f.status='ok'; f.err='';
+    toast('An Blender gesendet: '+f.name+(r.missing?' · '+r.missing+' Textur(en) fehlen':''),'ok');
+    hx('bridge → blender '+dir+' ✓');
+  } catch(e){ f.status='err'; f.err=clean(e); toast('Senden fehlgeschlagen: '+f.err,'err'); hx('ERROR '+f.err,'e'); }
+  render();
+}
+async function saveAddon(){
+  var name='melonenkonverter_blender.py';
+  if (mk){
+    var d=await mk.pickFolder(); if (!d) return;
+    await mk.writeFiles(d,[{ name:name, data:ADDON_SRC }]);
+    toast('Add-on gespeichert. In Blender: Bearbeiten → Einstellungen → Add-ons → Installieren und die Datei wählen.','ok',9000);
+    mk.openFolder(d);
+  } else {
+    var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([ADDON_SRC],{type:'text/x-python'})); a.download=name; a.click();
+  }
 }
 
 async function outDir(f){
@@ -1403,11 +1507,66 @@ async function outDir(f){
 
 $('convertAll').onclick = async function(){
   var todo=files.filter(function(f){ return f.checked && (f.model || f.img); });
-  batchDir=null;
-  for (var i=0;i<todo.length;i++) await convert(todo[i]);
-  batchDir=null;
-  log('✓ '+todo.length+' Datei(en) umgewandelt', 'ok'); hx(todo.length+' Datei(en) fertig ✓');
+  if (!todo.length) return;
+  var btn=this; btn.disabled=true; batchDir=null; quiet=true;
+  for (var i=0;i<todo.length;i++){ btn.textContent=(i+1)+' / '+todo.length+' …'; await convert(todo[i]); }
+  quiet=false; batchDir=null; render();
+  var bad=todo.filter(function(f){ return f.status==='err'; }).length;
+  log((bad?'✗ ':'✓ ')+(todo.length-bad)+' von '+todo.length+' Datei(en) umgewandelt'+(bad?' · '+bad+' mit Fehler':''), bad?'err':'ok'); hx(todo.length+' Datei(en) fertig ✓');
 };
+$('toBlender').onclick = function(){ sendToBlender(selected); };
+$('addonBtn').onclick = saveAddon;
+$('bridgePick').onclick = async function(){ var d=await mk.pickFolder(); if (d){ S.bridgeDir=d; save(); applyUI(); } };
+$('helpBtn').onclick = function(){ $('help').classList.add('on'); };
+$('helpClose').onclick = function(){ $('help').classList.remove('on'); };
+$('help').onclick = function(e){ if (e.target===this) this.classList.remove('on'); };
+
+// ---------- Rechtsklick-Menü ----------
+function ctxMenu(f, x, y){
+  var c=$('ctx'); c.innerHTML='';
+  function item(label, fn, ok){ var d=document.createElement('div'); d.textContent=label; if (ok===false) d.className='dis'; d.onclick=function(){ c.style.display='none'; fn(); }; c.appendChild(d); }
+  var ready2=!!(f.model||f.img);
+  item('Umwandeln', function(){ batchDir=null; convert(f); }, ready2);
+  if (mk) item('Speichern unter …', async function(){ var d=await mk.pickFolder(); if (d) convert(f, d); }, ready2);
+  if (mk) item('An Blender senden', function(){ sendToBlender(f); }, !!f.model);
+  c.appendChild(document.createElement('hr'));
+  item(f.checked?'Haken entfernen':'Anhaken', function(){ f.checked=!f.checked; render(); }, ready2);
+  if (mk && f.path) item('Im Explorer zeigen', function(){ if (mk.showItem) mk.showItem(f.path); else mk.openFolder(f.path.replace(/[\\\/][^\\\/]*$/,'')); });
+  if (mk && f.out) item('Zielordner öffnen', function(){ mk.openFolder(f.out); });
+  c.appendChild(document.createElement('hr'));
+  item('Aus der Liste entfernen', function(){ removeFile(f); });
+  c.style.display='block';
+  var w=c.offsetWidth, h=c.offsetHeight;
+  c.style.left=Math.min(x, innerWidth-w-6)+'px'; c.style.top=Math.min(y, innerHeight-h-6)+'px';
+}
+document.addEventListener('mousedown',function(e){ if (!$('ctx').contains(e.target)) $('ctx').style.display='none'; });
+function removeFile(f){
+  var vis=visible(), i=vis.indexOf(f);
+  files.splice(files.indexOf(f),1);
+  if (selected===f){ var nx=vis[i+1]||vis[i-1]||null; select(nx && files.indexOf(nx)>=0 ? nx : null); }
+  render();
+}
+
+// ---------- Tastenkürzel ----------
+window.addEventListener('keydown',function(e){
+  if (e.key==='F1'){ e.preventDefault(); $('help').classList.toggle('on'); return; }
+  if (e.key==='Escape' && $('help').classList.contains('on')){ $('help').classList.remove('on'); return; }
+  if (tb.open || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  var k=e.key.toLowerCase();
+  if (e.ctrlKey && k==='o'){ e.preventDefault(); drop.onclick(); }
+  else if (e.ctrlKey && e.shiftKey && e.key==='Enter'){ e.preventDefault(); $('convertAll').click(); }
+  else if (e.ctrlKey && e.key==='Enter'){ e.preventDefault(); if (selected){ batchDir=null; convert(selected); } }
+  else if (e.ctrlKey && k==='b'){ e.preventDefault(); sendToBlender(selected); }
+  else if (e.ctrlKey && k==='a'){ e.preventDefault(); $('selAll').checked=true; $('selAll').onchange(); }
+  else if (e.key==='Delete' && selected){ e.preventDefault(); removeFile(selected); }
+  else if (e.key==='ArrowDown' || e.key==='ArrowUp'){
+    var vis=visible().filter(function(f){ return !(S.closed||{})[f.kind||'p3d']; }); if (!vis.length) return;
+    e.preventDefault();
+    var i=vis.indexOf(selected); i = e.key==='ArrowDown' ? Math.min(vis.length-1,i+1) : Math.max(0,(i<0?vis.length:i)-1);
+    select(vis[i]); var el=$('list').querySelector('.item.sel'); if (el) el.scrollIntoView({block:'nearest'});
+  }
+  else if (e.key===' ' && selected && (selected.model||selected.img)){ e.preventDefault(); selected.checked=!selected.checked; render(); }
+});
 $('convertOne').onclick = function(){ if (selected){ batchDir=null; convert(selected); } };
 $('saveAs').onclick = async function(){ if (!selected || !mk) return; var d=await mk.pickFolder(); if (d) convert(selected, d); };
 $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFolder(selected.out); };
@@ -1446,7 +1605,9 @@ function render(){
       cb.onclick=function(ev){ ev.stopPropagation(); f.checked=this.checked; render(); };
       d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
       d.onclick=function(){ select(f); };
-      d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
+      d.oncontextmenu=function(ev){ ev.preventDefault(); select(f); ctxMenu(f, ev.clientX, ev.clientY); };
+      if (f.img){ d.draggable=true; d.ondragstart=function(ev){ ev.dataTransfer.setData('text/mk-tex', f.id); ev.dataTransfer.effectAllowed='copy'; }; d.title+='\nAuf das Modell ziehen, um die Textur zuzuweisen'; }
+      d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); removeFile(f); };
       L.appendChild(d);
     });
   });
@@ -1469,6 +1630,7 @@ function select(f){
   $('convertOne').disabled = !(f && (f.model || f.img));
   $('openOut').disabled = !(f && f.out && mk);
   $('saveAs').disabled = !(f && (f.model || f.img) && mk);
+  $('toBlender').disabled = !(f && f.model);
   showImage(f && f.img ? f : null);
   if (!f || !f.model) renderMats(null);
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
@@ -1572,10 +1734,10 @@ $('texIn').onchange=async function(){
 // ---------- Texturen-Sammlung, automatische Suche, Textur-Browser ----------
 var lib=[], libKeys={};
 function isTexName(n){ return /\.(paa|pac|png|jpe?g|bmp|webp)$/i.test(n); }
-function libAdd(en){
+function libAdd(en, user){
   var k=(en.path||('datei:'+en.name+':'+(en.file?en.file.size:''))).toLowerCase();
-  if (libKeys[k]) return libKeys[k];
-  var it={ name:en.name, en:en, thumb:null, img:null }; libKeys[k]=it; lib.push(it); return it;
+  if (libKeys[k]){ if (user) libKeys[k].user=true; return libKeys[k]; }
+  var it={ name:en.name, en:en, thumb:null, img:null, user:!!user }; libKeys[k]=it; lib.push(it); return it;
 }
 async function libFor(f){
   if (mk && f && f.path && mk.listTextures && !f.libDone){
@@ -1583,7 +1745,7 @@ async function libFor(f){
     try { var ps=await mk.listTextures(f.path, 2); ps.forEach(function(p){ libAdd({ name:p.split(/[\\\/]/).pop(), path:p }); }); hx('scan textures · '+ps.length+' found'); }
     catch(e){ hx('scan textures failed','w'); }
   }
-  Object.keys(paaPool).forEach(function(k){ if (isTexName(k)) libAdd(paaPool[k]); });
+  Object.keys(paaPool).forEach(function(k){ if (isTexName(k)) libAdd(paaPool[k], true); });
   return lib;
 }
 async function libImg(it){
@@ -1629,7 +1791,7 @@ async function openTB(f, m){
   viewer.highlight(m.key,true);
   $('tbStrip').innerHTML='<div class="tbempty">Texturen werden gesucht …</div>';
   await libFor(f);
-  tb.list=ranked(f,m,lib);
+  tb.list=ranked(f,m,lib.filter(function(it){ return it.user; }));
   fillTB();
 }
 function fillTB(){
@@ -1638,7 +1800,7 @@ function fillTB(){
   var cur=tb.f.override && tb.f.override[tb.m.key];
   tb.idx=-1;
   if (!tb.shown.length){
-    S2.innerHTML='<div class="tbempty">'+(lib.length?'Keine Treffer.':'Keine Texturen gefunden. Klick auf <b>📁 Ordner</b>, um einen Ordner mit Texturen hinzuzufügen (z. B. deinen Mod-Ordner), oder zieh PAA/PNG-Dateien ins Fenster.')+'</div>';
+    S2.innerHTML='<div class="tbempty">'+(tb.list.length?'Keine Treffer.':'Noch keine Texturen. Zieh PAA- oder PNG-Dateien ins Fenster oder füge mit <b>📁 Ordner</b> einen Texturordner hinzu.')+'</div>';
     updTBCount(); return;
   }
   var tok=++tb.token;
@@ -1693,9 +1855,9 @@ $('tbCancel').onclick=function(){ closeTB(false); };
 $('tbSearch').oninput=fillTB;
 $('tbFolder').onclick=function(){ $('tbDir').click(); };
 $('tbDir').onchange=function(){
-  var n=0; Array.from(this.files).forEach(function(file){ if (!isTexName(file.name)) return; n++; var p=mk && mk.pathForFile ? mk.pathForFile(file) : ''; libAdd(p ? { name:file.name, path:p } : { name:file.name, file:file }); });
+  var n=0; Array.from(this.files).forEach(function(file){ if (!isTexName(file.name)) return; n++; var p=mk && mk.pathForFile ? mk.pathForFile(file) : ''; libAdd(p ? { name:file.name, path:p } : { name:file.name, file:file }, true); });
   this.value=''; hx('library +'+n+' textures'); log(n+' Texturen hinzugefügt','ok');
-  if (tb.open){ tb.list=ranked(tb.f,tb.m,lib); fillTB(); }
+  if (tb.open){ tb.list=ranked(tb.f,tb.m,lib.filter(function(it){ return it.user; })); fillTB(); }
 };
 window.addEventListener('keydown',function(e){
   if (!tb.open) return;
@@ -1760,9 +1922,51 @@ drop.onclick=async function(){
 };
 $('fileIn').onchange=function(){ addEntries(Array.from(this.files).map(fileEntry)); this.value=''; };
 function fileEntry(file){ var p = mk && mk.pathForFile ? mk.pathForFile(file) : ''; return p ? { name:file.name, path:p } : { name:file.name, file:file }; }
-['dragenter','dragover'].forEach(function(t){ document.addEventListener(t,function(e){ e.preventDefault(); drop.classList.add('over'); }); });
-['dragleave','drop'].forEach(function(t){ document.addEventListener(t,function(e){ e.preventDefault(); if (t==='drop' || !e.relatedTarget) drop.classList.remove('over'); }); });
-document.addEventListener('drop',function(e){ addEntries(Array.from(e.dataTransfer.files).map(fileEntry)); });
+// Texturen direkt aufs Modell ziehen
+var dragKey=null;
+function overView(e){ var r=$('viewWrap').getBoundingClientRect(); return e.clientX>=r.left && e.clientX<=r.right && e.clientY>=r.top && e.clientY<=r.bottom; }
+function dragIsTexture(e){
+  var dt=e.dataTransfer; if (!dt) return false;
+  if (Array.prototype.indexOf.call(dt.types,'text/mk-tex')>=0) return true;
+  if (dt.items && dt.items.length) return Array.prototype.every.call(dt.items,function(it){ return it.kind==='file' && /^image\//.test(it.type||'') || (it.kind==='file' && !it.type); });
+  return false;
+}
+function canTexDrop(e){ return selected && selected.model && overView(e) && dragIsTexture(e); }
+['dragenter','dragover'].forEach(function(t){ document.addEventListener(t,function(e){
+  e.preventDefault();
+  if (canTexDrop(e)){
+    var k=viewer.pick(e.clientX,e.clientY);
+    if (k!==dragKey){ dragKey=k; viewer.highlight(k,true); }
+    drop.classList.remove('over'); return;
+  }
+  if (dragKey){ dragKey=null; viewer.highlight(tb.open?tb.m.key:null,true); }
+  if (Array.prototype.indexOf.call(e.dataTransfer.types,'text/mk-tex')<0) drop.classList.add('over');
+}); });
+document.addEventListener('dragleave',function(e){ e.preventDefault(); if (!e.relatedTarget){ drop.classList.remove('over'); if (dragKey){ dragKey=null; viewer.highlight(tb.open?tb.m.key:null); } } });
+document.addEventListener('drop',async function(e){
+  e.preventDefault(); drop.classList.remove('over');
+  var listId=e.dataTransfer.getData('text/mk-tex');
+  var files=Array.from(e.dataTransfer.files);
+  if (selected && selected.model && overView(e) && (listId || (files.length && files.every(function(x){ return isTexName(x.name); })))){
+    var key=viewer.pick(e.clientX,e.clientY) || dragKey || (tb.open ? tb.m.key : null);
+    dragKey=null; viewer.highlight(tb.open?tb.m.key:null,true);
+    if (!key){ log('Lass die Textur direkt über einem Teil des Modells los.','err'); return; }
+    try {
+      var img, name;
+      if (listId){ var src=files.length?null:window.__mkFiles().find(function(x){ return x.id===listId; }); if (!src || !src.img) return; img=src.img; name=src.name; }
+      else { var en=fileEntry(files[0]); libAdd(en, true); name=files[0].name; img=/\.pa[ac]$/i.test(name) ? MK.decodePAA(await readEntry(en)) : await decodeImageBytes(await readEntry(en)); }
+      var f=selected; f.override=f.override||{}; f.override[key]={ img:img, name:name };
+      hx('drop '+name+' → '+key);
+      if (tb.open && tb.f===f && tb.m.key===key){ tb.prev=f.override[key]; }
+      refreshView();
+      var m=MK.collectMaterials(f.model,[f.lodPick!=null?f.lodPick:MK.defaultLod(f.model)]).map[key];
+      log('✓ '+name+' liegt jetzt auf „'+(m?m.name:key)+'“', 'ok');
+    } catch(err){ showErr('Textur konnte nicht gelesen werden: '+clean(err)); }
+    return;
+  }
+  addEntries(files.map(fileEntry));
+});
+window.__mkFiles=function(){ return files; };
 
 // ---------- Ordner überwachen ----------
 function setWatch(dir){
@@ -1832,7 +2036,7 @@ var viewer = (function(){
       var img=texFor(f,k,texOf[k]), tex=white, own=false;
       if (img && img.rgba){ tex=mkTex(img.width,img.height,img.rgba); own=true; }
       else { var pc=/color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(texOf[k]); tex=colTex(pc?[+pc[1],+pc[2],+pc[3]]:MK.autoColor(k)); own=true; }
-      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own,key:k});
+      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own,key:k,data:new Float32Array(by[k])});
     });
     if (min[0]>max[0]){ min=[-1,0,-1]; max=[1,1,1]; }
     var nid = f.id+':'+li;
@@ -1888,8 +2092,29 @@ var viewer = (function(){
   window.addEventListener('keydown',function(e){ if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return; if ((e.key==='f'||e.key==='F') && !e.ctrlKey && selected){ viewer._last=null; refreshView(); } });
   $('showBack').onchange=draw;
   window.addEventListener('resize',draw);
+  // Welches Teil liegt unter dem Mauszeiger? (Strahl gegen alle Dreiecke)
+  function pick(cx,cy){
+    if (!groups.length) return null;
+    var r=cv.getBoundingClientRect(), nx=((cx-r.left)/r.width)*2-1, ny=1-((cy-r.top)/r.height)*2;
+    if (nx<-1||nx>1||ny<-1||ny>1) return null;
+    var e=eye(), z=norm(sub(e,cam.target)), x=norm(cross([0,1,0],z)), y=cross(z,x), t=Math.tan(0.4), asp=r.width/Math.max(r.height,1);
+    var d=norm([-z[0]+x[0]*nx*t*asp+y[0]*ny*t, -z[1]+x[1]*nx*t*asp+y[1]*ny*t, -z[2]+x[2]*nx*t*asp+y[2]*ny*t]);
+    var best=1e30, hit=null;
+    groups.forEach(function(g){
+      var a=g.data;
+      for (var i=0;i<a.length;i+=24){
+        var e1x=a[i+8]-a[i], e1y=a[i+9]-a[i+1], e1z=a[i+10]-a[i+2], e2x=a[i+16]-a[i], e2y=a[i+17]-a[i+1], e2z=a[i+18]-a[i+2];
+        var px=d[1]*e2z-d[2]*e2y, py=d[2]*e2x-d[0]*e2z, pz=d[0]*e2y-d[1]*e2x, det=e1x*px+e1y*py+e1z*pz;
+        if (det>-1e-12 && det<1e-12) continue;
+        var inv=1/det, sx=e[0]-a[i], sy=e[1]-a[i+1], sz=e[2]-a[i+2], u=(sx*px+sy*py+sz*pz)*inv; if (u<0||u>1) continue;
+        var qx=sy*e1z-sz*e1y, qy=sz*e1x-sx*e1z, qz=sx*e1y-sy*e1x, v=(d[0]*qx+d[1]*qy+d[2]*qz)*inv; if (v<0||u+v>1) continue;
+        var tt=(e2x*qx+e2y*qy+e2z*qz)*inv; if (tt>0 && tt<best){ best=tt; hit=g.key; }
+      }
+    });
+    return hit;
+  }
   function setTex(k,img){ groups.forEach(function(g){ if (g.key!==k) return; if (g.own) gl.deleteTexture(g.tex); g.tex=mkTex(img.width,img.height,img.rgba); g.own=true; }); draw(); }
-  return { set:set, draw:draw, setTex:setTex, highlight:function(k,soft){ hiKey=k||null; hiSoft=!!soft; draw(); } };
+  return { set:set, draw:draw, setTex:setTex, pick:pick, highlight:function(k,soft){ hiKey=k||null; hiSoft=!!soft; draw(); } };
 })();
 render();
 })();

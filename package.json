@@ -1,7 +1,7 @@
 {
   "name": "melonenkonverter",
   "productName": "Melonenkonverter",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Wandelt P3D-Modelle in OBJ-Dateien um",
   "author": "DevWasserMelone",
   "main": "electron/main.js",

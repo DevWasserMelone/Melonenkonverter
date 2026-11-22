@@ -235,6 +235,12 @@ ipcMain.handle('a:write', (e, dir, files) => {
   return true;
 });
 ipcMain.handle('a:openFolder', (e, dir) => shell.openPath(dir));
+ipcMain.handle('a:bridgeDir', () => {
+  const d = path.join(app.getPath('home'), 'Melonenkonverter-Blender');
+  try { fs.mkdirSync(d, { recursive: true }); } catch (e) {}
+  return d;
+});
+ipcMain.handle('a:showItem', (e, p) => shell.showItemInFolder(p));
 
 function searchByName(dir, name, depth, budget) {
   if (depth < 0 || budget.n <= 0) return null;

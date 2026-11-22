@@ -25,6 +25,8 @@ contextBridge.exposeInMainWorld('mk', {
   findTexture: (p3d, tex) => ipcRenderer.invoke('a:findTex', p3d, tex),
   listTextures: (file, levels) => ipcRenderer.invoke('a:listTex', file, levels),
   openFolder: (dir) => ipcRenderer.invoke('a:openFolder', dir),
+  bridgeDir: () => ipcRenderer.invoke('a:bridgeDir'),
+  showItem: (p) => ipcRenderer.invoke('a:showItem', p),
   watch: (dir) => ipcRenderer.invoke('a:watch', dir),
   unwatch: () => ipcRenderer.invoke('a:unwatch'),
   onWatched: (cb) => ipcRenderer.on('a:watched', (e, p) => cb(p)),
