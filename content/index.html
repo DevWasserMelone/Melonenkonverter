@@ -283,14 +283,14 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   // Kompriertes Feld lesen: Version >= 64 mit Merker-Byte, sonst ab 1024 Bytes LZO
   function odolData(u8, p, size, ver) {
     var compressed = size >= 1024;
-    if (ver >= 64) { var fl = u8[p]; if (fl > 1) throw new Error('flag'); compressed = fl === 1; p++; }
+    if (ver >= 64) { var fl = u8[p]; if (fl > 2) throw new Error('flag'); compressed = fl !== 0; p++; }
     if (!compressed) { if (p + size > u8.length) throw new Error('size'); return { data: u8.subarray(p, p + size), end: p + size }; }
     var out = lzo1x(u8.subarray(p, Math.min(u8.length, p + size * 2 + 4096)), size);
     return { data: out, end: p + out.consumed };
   }
 
   function odolLoose(u8, p, cap, ver) {
-    if (ver < 64 || u8[p] !== 1) return null;
+    if (ver < 64 || (u8[p] !== 1 && u8[p] !== 2)) return null;
     var out = lzo1x(u8.subarray(p + 1, Math.min(u8.length, p + 1 + cap * 2 + 4096)), cap, true);
     return { data: out, end: p + 1 + out.consumed };
   }
@@ -353,7 +353,10 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     function printable(t) { for (var k = 0; k < t.length; k++) { var c = t.charCodeAt(k); if (c < 32 || c > 126) return false; } return t.length < 512; }
     function directHead() {
       var nProx = r.u32(); if (nProx > 10000) throw new Error('Proxys');
-      for (var i = 0; i < nProx; i++) { if (!printable(r.str())) throw new Error('Proxyname'); r.p += 48 + 12 + (ver >= 40 ? 4 : 0); }
+      for (var i = 0; i < nProx; i++) {
+        if (!printable(r.str())) throw new Error('Proxyname'); r.p += 48 + 12;
+        if (ver >= 40) { proxySecs.push(r.dv.getInt32(r.p, true)); r.p += 4; }
+      }
       var n = r.u32(); if (n > 100000) throw new Error('Skelett'); r.p += n * 4;
       n = r.u32(); if (n > 100000) throw new Error('Skelett 2');
       for (i = 0; i < n; i++) { var m = r.u32(); if (m > 100000) throw new Error('Skelett 3'); r.p += m * 4; }
@@ -380,7 +383,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       }
       return { vc: v, bmin: bb.slice(0, 3), bmax: bb.slice(3, 6), textures: tex, after: q };
     }
-    var head = null, headErr = '';
+    var head = null, headErr = '', proxySecs = [];
     try { head = directHead(); } catch (ex) { headErr = ex.message; }
     if (!head) {
       // Ersatz: Kopf anhand von Box + Texturliste suchen
@@ -421,7 +424,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     if (!faces) throw new Error('Flächen nicht gefunden');
 
     // Abschnitte (welche Textur für welche Flächen)
-    var faceTex = new Array(faces.length).fill(-1), secEnd = faceEnd;
+    var faceTex = new Array(faces.length).fill(-1), isProxy = new Array(faces.length).fill(false), secEnd = faceEnd;
     try {
       r.p = faceEnd;
       var nSec = r.u32(); if (nSec < 1 || nSec > 100000) throw 0;
@@ -439,11 +442,14 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       }
       var maxHi = Math.max.apply(null, secs.map(function (s) { return s[1]; }));
       var byOffset = maxHi > faces.length;
-      secs.forEach(function (s) {
+      secs.forEach(function (s, sIdx) {
+        var hit = [];
         for (var fi = 0; fi < faces.length; fi++) {
           var pos = byOffset ? faceOffsets[fi] : fi;
-          if (pos >= s[0] && pos < s[1]) faceTex[fi] = s[2];
+          if (pos >= s[0] && pos < s[1]) { faceTex[fi] = s[2]; hit.push(fi); }
         }
+        // Proxy-Platzhalter: eigener Abschnitt mit einem einzelnen Dreieck
+        if (proxySecs.indexOf(sIdx) >= 0 && hit.length <= 16 && hit.every(function (fi) { return faces[fi].length === 3; })) hit.forEach(function (fi) { isProxy[fi] = true; });
       });
       secEnd = r.p;
     } catch (ex) { /* ohne Abschnitte: eine Textur */ }
@@ -541,9 +547,10 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     if (uv && uv.length / 2 !== vc) uv = null;
 
     var outFaces = faces.map(function (vs, fi) {
+      if (isProxy[fi]) return null;
       var t = faceTex[fi] >= 0 ? textures[faceTex[fi]] : (textures.length === 1 ? textures[0] : '');
       return { v: vs.map(function (ix) { return { p: ix, n: -1, u: uv ? uv[ix * 2] : 0, v: uv ? uv[ix * 2 + 1] : 0 }; }), flags: 0, tex: t || '', mat: '' };
-    });
+   }).filter(Boolean);
     return { resolution: resolution, points: pts, normals: new Float32Array(0), faces: outFaces, selections: [], nPoints: vc, nFaces: outFaces.length, noUV: !uv };
   }
 
