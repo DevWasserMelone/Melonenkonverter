@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "date": "2026-11-22",
-  "changelog": "🐞 Behoben\n• Texte in der rechten Spalte werden nicht mehr mitten im Wort getrennt"
+  "changelog": "✨ Neu\n• Binarisierte P3D-Dateien (ODOL) können jetzt umgewandelt werden\n• Knopf „Fehler kopieren“ bei Fehlermeldungen"
 }
