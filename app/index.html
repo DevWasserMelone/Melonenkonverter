@@ -119,8 +119,15 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
 #ctx{position:fixed;display:none;z-index:210;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px;min-width:190px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
 #ctx div{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:12.5px}
 #ctx div:hover{background:rgba(70,181,98,.15)} #ctx div.dis{opacity:.4;pointer-events:none} #ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
-#help{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
-#help.on{display:flex}
+#help,#blGuide,#aiDlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
+#help.on,#blGuide.on,#aiDlg.on{display:flex}
+.hbox.guide{width:480px;max-height:90vh;overflow:auto}
+.guide .lead{color:var(--dim);margin:0 0 10px;font-size:12.5px}
+.guide .step{display:flex;gap:10px;margin:10px 0;font-size:12.5px;line-height:1.5}
+.guide .n{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(70,181,98,.18);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.guide .hint{color:var(--dim);font-size:11.5px;margin-top:3px}
+.guide .step .btn{margin-top:6px}
+.guide .saved{font-size:11.5px;color:var(--green);margin-top:5px;word-break:break-all}
 .hbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:380px}
 .hbox h2{margin:0 0 10px;font-size:15px} .hbox table{border-collapse:collapse;margin-bottom:12px} .hbox td{padding:4px 14px 4px 0;font-size:12.5px} .hbox td:first-child{color:var(--green);white-space:nowrap}
 .btn.blend{border-color:#e87d0d;color:#ffb15c} .btn.blend:hover{background:rgba(232,125,13,.15)}
@@ -134,6 +141,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
   <h1 class="glitch">Melonenkonverter</h1><span class="ver" id="ver">–</span>
   <div class="sp"></div>
   <div class="snowridge" style="position:absolute;left:0;right:0;bottom:-10px;z-index:5"></div>
+  <button class="btn blend" id="blHead" title="Blender einrichten" style="padding:4px 10px">🟧 Blender</button>
   <button class="btn" id="helpBtn" title="Tastenkürzel (F1)" style="padding:4px 10px">?</button>
   <div class="watch" title="Neue P3D-Dateien in diesem Ordner werden sofort umgewandelt"><span class="dot" id="wDot"></span><span id="wTxt">Ordner-Automatik aus</span></div>
 </header>
@@ -201,9 +209,14 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       </div>
 
       <h3>Blender</h3>
-      <button class="btn" id="addonBtn" style="width:100%">⬇ Blender-Add-on speichern</button>
+      <button class="btn blend" id="addonBtn" style="width:100%">🟧 Blender einrichten</button>
       <div class="path" id="bridgePath">Mit dem Add-on landen Modelle per „An Blender“ direkt mit Texturen in Blender.</div>
       <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
+
+      <h3>KI-Texturen</h3>
+      <div class="row"><label class="t">Gemini-API-Schlüssel</label><input type="password" id="aiKey" placeholder="AIza…" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none"></div>
+      <div class="path">Kostenlos erstellen unter aistudio.google.com/apikey · bleibt nur auf deinem PC gespeichert</div>
+      <div class="row" style="margin-top:8px"><label class="t">Modell</label><select id="aiModel"><option value="gemini-3.1-flash-image">Nano Banana 2 (empfohlen)</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite (schnell, günstig)</option><option value="gemini-3-pro-image">Nano Banana Pro (beste Qualität)</option></select></div>
 
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
@@ -221,6 +234,35 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 </main>
 <div id="toasts"></div>
 <div id="ctx"></div>
+<div id="blGuide"><div class="hbox guide">
+<h2>🟧 Blender einrichten</h2>
+<p class="lead">Einmal einrichten – danach landet jedes Modell per <b>„An Blender“</b> direkt mit Texturen in Blender.</p>
+<div class="step"><span class="n">1</span><div><b>Add-on herunterladen</b><br><button class="btn main" id="gSave">⬇ Add-on herunterladen</button><div class="saved" id="gSaved"></div></div></div>
+<div class="step"><span class="n">2</span><div><b>Blender öffnen</b> und oben auf <b>Bearbeiten → Einstellungen</b> klicken.</div></div>
+<div class="step"><span class="n">3</span><div>Links auf <b>Add-ons</b>. Oben rechts auf den kleinen Pfeil <b>⌄</b> und <b>„Von Festplatte installieren …“</b> wählen.<div class="hint">Blender 4.1 oder älter: oben direkt auf <b>„Installieren …“</b> klicken.</div></div></div>
+<div class="step"><span class="n">4</span><div>Die Datei <b>melonenkonverter_blender.py</b> auswählen (dort, wo du sie in Schritt 1 gespeichert hast).</div></div>
+<div class="step"><span class="n">5</span><div>Ins Suchfeld <b>„Melone“</b> tippen und bei <b>Melonenkonverter Bridge</b> den <b>Haken setzen</b>.</div></div>
+<div class="step"><span class="n">6</span><div>In der 3D-Ansicht <b>N</b> drücken. Rechts erscheint der Reiter <b>„Melone“</b>.</div></div>
+<div class="step"><span class="n">7</span><div>Hier im Konverter ein Modell wählen und auf <b>„An Blender“</b> klicken (oder <b>Strg + B</b>) – es erscheint automatisch in Blender.</div></div>
+<div class="hint" style="margin-top:6px">Add-on aktualisieren: altes Add-on in den Blender-Einstellungen entfernen, neu installieren und Blender neu starten.</div>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" id="gClose">Schließen</button><button class="btn main" id="gDone">Fertig eingerichtet</button></div>
+</div></div>
+<div id="aiDlg"><div class="hbox guide" style="width:560px">
+<h2>✨ Textur erstellen für <span id="aiMat"></span></h2>
+<p class="lead">Beschreib kurz, wie das Teil aussehen soll – z. B. „abgenutztes schwarzes Metall mit Kratzern“, „Multicam-Tarnstoff“, „altes Leder braun“.</p>
+<textarea id="aiPrompt" rows="3" placeholder="Was soll drauf?" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px;outline:none;resize:vertical"></textarea>
+<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0">
+  <label class="chk"><input type="checkbox" id="aiSeamless" checked><span>Nahtlos kachelbar<small>Für Stoff, Metall, Holz – wiederholt sich ohne Kanten</small></span></label>
+  <label class="chk"><input type="checkbox" id="aiUV"><span>UV-Layout als Vorlage<small>Die KI bekommt die Form der Teile mit – für Logos/Details an bestimmten Stellen</small></span></label>
+  <label class="chk"><input type="checkbox" id="ai2k"><span>2K statt 1K<small>Schärfer, dauert länger</small></span></label>
+</div>
+<div id="aiOut" style="display:none;gap:12px;align-items:flex-start;margin:6px 0">
+  <div id="aiImg" style="width:180px;height:180px;flex:none;border-radius:6px;border:1px solid var(--line);background:#0d141d center/cover no-repeat"></div>
+  <div id="aiInfo" style="font-size:12px;color:var(--dim);line-height:1.5"></div>
+</div>
+<div id="aiMsg" style="font-size:12px;min-height:16px;margin:4px 0"></div>
+<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" id="aiClose">Schließen</button><button class="btn main" id="aiGo">✨ Erstellen</button></div>
+</div></div>
 <div id="help"><div class="hbox"><h2>Tastenkürzel</h2>
 <table>
 <tr><td>Strg + O</td><td>Dateien öffnen</td></tr>
@@ -1214,7 +1256,7 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var S = { aiModel:'gemini-3.1-flash-image', aiKey:'', v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
 var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
 Object.assign(S, saved);
 if (!(saved.v>=3)){ S.auto=false; S.v=3; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
@@ -1280,7 +1322,7 @@ async function addEntries(entries){
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
     if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
-    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; if (hasModel) continue; }
+    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; }
     else if (!/\.(p3d|obj)$/.test(low)) continue;
     var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
@@ -1452,7 +1494,7 @@ async function convert(f, dirOverride){
 }
 
 // ---------- Blender-Verbindung ----------
-var ADDON_SRC = "bl_info = {\n    \"name\": \"Melonenkonverter Bridge\",\n    \"author\": \"DevWasserMelone\",\n    \"version\": (1, 0, 0),\n    \"blender\": (3, 6, 0),\n    \"location\": \"3D-Ansicht > Seitenleiste (N) > Melone\",\n    \"description\": \"Holt Modelle aus dem Melonenkonverter automatisch mit Texturen in Blender\",\n    \"category\": \"Import-Export\",\n}\n\nimport bpy\nimport os\nimport json\nimport time\nimport math\n\nTIMER_INTERVAL = 1.0\n_state = {\"last\": \"\", \"count\": 0, \"error\": \"\"}\n\n\ndef default_dir():\n    return os.path.join(os.path.expanduser(\"~\"), \"Melonenkonverter-Blender\")\n\n\ndef prefs():\n    try:\n        return bpy.context.preferences.addons[__name__].preferences\n    except Exception:\n        return None\n\n\ndef bridge_dir():\n    p = prefs()\n    d = (p.bridge_dir if p and p.bridge_dir else default_dir())\n    return bpy.path.abspath(d)\n\n\nclass MELONE_Prefs(bpy.types.AddonPreferences):\n    bl_idname = __name__\n\n    bridge_dir: bpy.props.StringProperty(\n        name=\"Verbindungsordner\",\n        description=\"Muss derselbe Ordner sein wie im Melonenkonverter unter Blender\",\n        subtype=\"DIR_PATH\",\n        default=default_dir(),\n    )\n    auto_import: bpy.props.BoolProperty(name=\"Automatisch importieren\", default=True)\n    smooth: bpy.props.BoolProperty(name=\"Gl\u00e4tten (Auto Smooth)\", default=True)\n    own_collection: bpy.props.BoolProperty(name=\"Eigene Collection pro Modell\", default=True)\n    focus: bpy.props.BoolProperty(name=\"Ansicht auf Modell zentrieren\", default=True)\n\n    def draw(self, context):\n        col = self.layout.column()\n        col.prop(self, \"bridge_dir\")\n        col.prop(self, \"auto_import\")\n        col.prop(self, \"smooth\")\n        col.prop(self, \"own_collection\")\n        col.prop(self, \"focus\")\n\n\n# ---------- Import ----------\n\ndef find_view3d():\n    wm = bpy.context.window_manager\n    for win in wm.windows:\n        for area in win.screen.areas:\n            if area.type == \"VIEW_3D\":\n                for region in area.regions:\n                    if region.type == \"WINDOW\":\n                        return win, area, region\n    win = wm.windows[0] if wm.windows else None\n    return win, None, None\n\n\ndef run_op(op, **kw):\n    win, area, region = find_view3d()\n    if win is None:\n        return op(**kw)\n    ctx = {\"window\": win, \"screen\": win.screen}\n    if area:\n        ctx[\"area\"] = area\n        ctx[\"region\"] = region\n    with bpy.context.temp_override(**ctx):\n        return op(**kw)\n\n\ndef pending_jobs():\n    root = bridge_dir()\n    jobs = []\n    if not os.path.isdir(root):\n        return jobs\n    for name in os.listdir(root):\n        d = os.path.join(root, name)\n        info = os.path.join(d, \"melone.json\")\n        if os.path.isdir(d) and os.path.isfile(info) and not os.path.exists(os.path.join(d, \".importiert\")):\n            jobs.append((os.path.getmtime(info), d, info))\n    jobs.sort()\n    return jobs\n\n\ndef make_smooth(objs):\n    for o in objs:\n        if o.type != \"MESH\":\n            continue\n        me = o.data\n        try:\n            me.shade_smooth()\n        except Exception:\n            me.polygons.foreach_set(\"use_smooth\", [True] * len(me.polygons))\n        if hasattr(me, \"use_auto_smooth\"):\n            me.use_auto_smooth = True\n            me.auto_smooth_angle = math.radians(40)\n        else:\n            try:\n                bpy.ops.object.select_all(action=\"DESELECT\")\n            except Exception:\n                pass\n            try:\n                with bpy.context.temp_override(object=o, active_object=o, selected_objects=[o], selected_editable_objects=[o]):\n                    bpy.ops.object.shade_auto_smooth(angle=math.radians(40))\n            except Exception:\n                pass\n\n\ndef import_job(folder, info_path):\n    p = prefs()\n    with open(info_path, \"r\", encoding=\"utf-8\") as fh:\n        info = json.load(fh)\n    name = info.get(\"name\", os.path.basename(folder))\n    files = info.get(\"obj\") or [f for f in os.listdir(folder) if f.lower().endswith(\".obj\")]\n    if isinstance(files, str):\n        files = [files]\n    before = set(bpy.data.objects)\n    for f in files:\n        path = os.path.join(folder, f)\n        if hasattr(bpy.ops.wm, \"obj_import\"):\n            run_op(bpy.ops.wm.obj_import, filepath=path, forward_axis=\"NEGATIVE_Z\", up_axis=\"Y\")\n        else:\n            run_op(bpy.ops.import_scene.obj, filepath=path, axis_forward=\"-Z\", axis_up=\"Y\")\n    new = [o for o in bpy.data.objects if o not in before]\n\n    if p is None or p.own_collection:\n        col = bpy.data.collections.new(name)\n        bpy.context.scene.collection.children.link(col)\n        for o in new:\n            for c in list(o.users_collection):\n                c.objects.unlink(o)\n            col.objects.link(o)\n\n    if p is None or p.smooth:\n        make_smooth(new)\n\n    try:\n        for o in bpy.context.view_layer.objects:\n            o.select_set(False)\n        for o in new:\n            o.select_set(True)\n        if new:\n            bpy.context.view_layer.objects.active = new[0]\n        if (p is None or p.focus) and new:\n            run_op(bpy.ops.view3d.view_selected)\n    except Exception:\n        pass\n\n    open(os.path.join(folder, \".importiert\"), \"w\").close()\n    _state[\"last\"] = name\n    _state[\"count\"] += 1\n    _state[\"error\"] = \"\"\n    return name, len(new)\n\n\ndef poll_timer():\n    p = prefs()\n    if p is None or not p.auto_import:\n        return TIMER_INTERVAL\n    try:\n        for _, folder, info in pending_jobs():\n            # kurz warten, falls der Konverter noch schreibt\n            if time.time() - os.path.getmtime(info) < 0.5:\n                continue\n            import_job(folder, info)\n    except Exception as e:\n        _state[\"error\"] = str(e)\n    return TIMER_INTERVAL\n\n\n# ---------- Bedienung ----------\n\nclass MELONE_OT_import_now(bpy.types.Operator):\n    bl_idname = \"melone.import_now\"\n    bl_label = \"Jetzt importieren\"\n    bl_description = \"Alle neuen Modelle aus dem Melonenkonverter importieren\"\n\n    def execute(self, context):\n        jobs = pending_jobs()\n        if not jobs:\n            self.report({\"INFO\"}, \"Keine neuen Modelle\")\n            return {\"FINISHED\"}\n        for _, folder, info in jobs:\n            try:\n                name, n = import_job(folder, info)\n                self.report({\"INFO\"}, \"Importiert: %s (%d Objekte)\" % (name, n))\n            except Exception as e:\n                self.report({\"ERROR\"}, str(e))\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_reimport_last(bpy.types.Operator):\n    bl_idname = \"melone.reimport_last\"\n    bl_label = \"Letztes erneut laden\"\n    bl_description = \"Das zuletzt gesendete Modell noch einmal importieren\"\n\n    def execute(self, context):\n        root = bridge_dir()\n        if not os.path.isdir(root):\n            self.report({\"WARNING\"}, \"Verbindungsordner nicht gefunden\")\n            return {\"CANCELLED\"}\n        cands = [os.path.join(root, d) for d in os.listdir(root) if os.path.isfile(os.path.join(root, d, \"melone.json\"))]\n        if not cands:\n            self.report({\"INFO\"}, \"Noch nichts gesendet\")\n            return {\"CANCELLED\"}\n        last = max(cands, key=lambda d: os.path.getmtime(os.path.join(d, \"melone.json\")))\n        name, n = import_job(last, os.path.join(last, \"melone.json\"))\n        self.report({\"INFO\"}, \"Importiert: %s\" % name)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_open_folder(bpy.types.Operator):\n    bl_idname = \"melone.open_folder\"\n    bl_label = \"Ordner \u00f6ffnen\"\n\n    def execute(self, context):\n        d = bridge_dir()\n        os.makedirs(d, exist_ok=True)\n        bpy.ops.wm.path_open(filepath=d)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_cleanup(bpy.types.Operator):\n    bl_idname = \"melone.cleanup\"\n    bl_label = \"Alte Sendungen l\u00f6schen\"\n    bl_description = \"Bereits importierte Modelle aus dem Verbindungsordner entfernen (nicht aus der Szene)\"\n\n    def execute(self, context):\n        import shutil\n        root, n = bridge_dir(), 0\n        if os.path.isdir(root):\n            for d in os.listdir(root):\n                full = os.path.join(root, d)\n                if os.path.isdir(full) and os.path.exists(os.path.join(full, \".importiert\")):\n                    shutil.rmtree(full, ignore_errors=True)\n                    n += 1\n        self.report({\"INFO\"}, \"%d alte Sendungen gel\u00f6scht\" % n)\n        return {\"FINISHED\"}\n\n\nclass MELONE_PT_panel(bpy.types.Panel):\n    bl_label = \"Melonenkonverter\"\n    bl_space_type = \"VIEW_3D\"\n    bl_region_type = \"UI\"\n    bl_category = \"Melone\"\n\n    def draw(self, context):\n        p = prefs()\n        lay = self.layout\n        ok = os.path.isdir(bridge_dir())\n        box = lay.box()\n        box.label(text=\"Verbunden\" if ok else \"Wartet auf Konverter \u2026\", icon=\"LINKED\" if ok else \"UNLINKED\")\n        if _state[\"last\"]:\n            box.label(text=\"Zuletzt: \" + _state[\"last\"], icon=\"IMPORT\")\n        if _state[\"error\"]:\n            box.label(text=_state[\"error\"][:60], icon=\"ERROR\")\n        if p:\n            lay.prop(p, \"auto_import\")\n            lay.prop(p, \"smooth\")\n            lay.prop(p, \"own_collection\")\n        lay.operator(\"melone.import_now\", icon=\"IMPORT\")\n        lay.operator(\"melone.reimport_last\", icon=\"FILE_REFRESH\")\n        row = lay.row(align=True)\n        row.operator(\"melone.open_folder\", icon=\"FILE_FOLDER\")\n        row.operator(\"melone.cleanup\", icon=\"TRASH\", text=\"\")\n        if p:\n            lay.prop(p, \"bridge_dir\", text=\"\")\n\n\nclasses = (MELONE_Prefs, MELONE_OT_import_now, MELONE_OT_reimport_last, MELONE_OT_open_folder, MELONE_OT_cleanup, MELONE_PT_panel)\n\n\ndef register():\n    for c in classes:\n        bpy.utils.register_class(c)\n    if not bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.register(poll_timer, first_interval=2.0, persistent=True)\n\n\ndef unregister():\n    if bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.unregister(poll_timer)\n    for c in reversed(classes):\n        bpy.utils.unregister_class(c)\n\n\nif __name__ == \"__main__\":\n    register()\n";
+var ADDON_SRC = "bl_info = {\n    \"name\": \"Melonenkonverter Bridge\",\n    \"author\": \"DevWasserMelone\",\n    \"version\": (1, 1, 0),\n    \"blender\": (3, 6, 0),\n    \"location\": \"3D-Ansicht > Seitenleiste (N) > Melone\",\n    \"description\": \"Holt Modelle aus dem Melonenkonverter automatisch mit Texturen in Blender\",\n    \"category\": \"Import-Export\",\n}\n\nimport bpy\nimport os\nimport json\nimport time\nimport math\n\nTIMER_INTERVAL = 1.0\n_state = {\"last\": \"\", \"count\": 0, \"error\": \"\"}\n\n\ndef default_dir():\n    return os.path.join(os.path.expanduser(\"~\"), \"Melonenkonverter-Blender\")\n\n\ndef prefs():\n    try:\n        return bpy.context.preferences.addons[__name__].preferences\n    except Exception:\n        return None\n\n\ndef bridge_dir():\n    p = prefs()\n    d = (p.bridge_dir if p and p.bridge_dir else default_dir())\n    return bpy.path.abspath(d)\n\n\nclass MELONE_Prefs(bpy.types.AddonPreferences):\n    bl_idname = __name__\n\n    bridge_dir: bpy.props.StringProperty(\n        name=\"Verbindungsordner\",\n        description=\"Muss derselbe Ordner sein wie im Melonenkonverter unter Blender\",\n        subtype=\"DIR_PATH\",\n        default=default_dir(),\n    )\n    auto_import: bpy.props.BoolProperty(name=\"Automatisch importieren\", default=True)\n    smooth: bpy.props.BoolProperty(name=\"Gl\u00e4tten (Auto Smooth)\", default=True)\n    own_collection: bpy.props.BoolProperty(name=\"Eigene Collection pro Modell\", default=True)\n    focus: bpy.props.BoolProperty(name=\"Ansicht auf Modell zentrieren\", default=True)\n    show_textures: bpy.props.BoolProperty(name=\"Texturen in der Ansicht zeigen\", default=True)\n\n    def draw(self, context):\n        col = self.layout.column()\n        col.prop(self, \"bridge_dir\")\n        col.prop(self, \"auto_import\")\n        col.prop(self, \"smooth\")\n        col.prop(self, \"own_collection\")\n        col.prop(self, \"focus\")\n        col.prop(self, \"show_textures\")\n\n\n# ---------- Import ----------\n\ndef find_view3d():\n    wm = bpy.context.window_manager\n    for win in wm.windows:\n        for area in win.screen.areas:\n            if area.type == \"VIEW_3D\":\n                for region in area.regions:\n                    if region.type == \"WINDOW\":\n                        return win, area, region\n    win = wm.windows[0] if wm.windows else None\n    return win, None, None\n\n\ndef run_op(op, **kw):\n    win, area, region = find_view3d()\n    if win is None:\n        return op(**kw)\n    ctx = {\"window\": win, \"screen\": win.screen}\n    if area:\n        ctx[\"area\"] = area\n        ctx[\"region\"] = region\n    with bpy.context.temp_override(**ctx):\n        return op(**kw)\n\n\ndef pending_jobs():\n    root = bridge_dir()\n    jobs = []\n    if not os.path.isdir(root):\n        return jobs\n    for name in os.listdir(root):\n        d = os.path.join(root, name)\n        info = os.path.join(d, \"melone.json\")\n        if os.path.isdir(d) and os.path.isfile(info) and not os.path.exists(os.path.join(d, \".importiert\")):\n            jobs.append((os.path.getmtime(info), d, info))\n    jobs.sort()\n    return jobs\n\n\ndef make_smooth(objs):\n    for o in objs:\n        if o.type != \"MESH\":\n            continue\n        me = o.data\n        try:\n            me.shade_smooth()\n        except Exception:\n            me.polygons.foreach_set(\"use_smooth\", [True] * len(me.polygons))\n        if hasattr(me, \"use_auto_smooth\"):\n            me.use_auto_smooth = True\n            me.auto_smooth_angle = math.radians(40)\n        else:\n            try:\n                bpy.ops.object.select_all(action=\"DESELECT\")\n            except Exception:\n                pass\n            try:\n                with bpy.context.temp_override(object=o, active_object=o, selected_objects=[o], selected_editable_objects=[o]):\n                    bpy.ops.object.shade_auto_smooth(angle=math.radians(40))\n            except Exception:\n                pass\n\n\ndef read_mtl_maps(folder):\n    \"\"\"Materialname -> Texturdatei aus allen .mtl im Ordner\"\"\"\n    maps, alpha = {}, set()\n    for f in os.listdir(folder):\n        if not f.lower().endswith(\".mtl\"):\n            continue\n        cur = None\n        with open(os.path.join(folder, f), \"r\", encoding=\"utf-8\", errors=\"ignore\") as fh:\n            for line in fh:\n                t = line.strip()\n                if t.startswith(\"newmtl \"):\n                    cur = t[7:].strip()\n                elif cur and t.lower().startswith(\"map_kd \"):\n                    maps[cur] = t[7:].strip().split()[-1]\n                elif cur and t.lower().startswith(\"map_d \"):\n                    alpha.add(cur)\n    return maps, alpha\n\n\ndef base_name(name):\n    # Blender h\u00e4ngt bei doppelten Namen .001 usw. an\n    if len(name) > 4 and name[-4] == \".\" and name[-3:].isdigit():\n        return name[:-4]\n    return name\n\n\ndef fix_materials(objs, folder):\n    \"\"\"Sorgt daf\u00fcr, dass jede Textur wirklich an Base Color h\u00e4ngt und Transparenz funktioniert\"\"\"\n    maps, alpha_mats = read_mtl_maps(folder)\n    done = set()\n    for o in objs:\n        for slot in getattr(o, \"material_slots\", []):\n            mat = slot.material\n            if not mat or mat.name in done:\n                continue\n            done.add(mat.name)\n            tex_file = maps.get(base_name(mat.name))\n            if not tex_file:\n                continue\n            path = os.path.join(folder, tex_file)\n            if not os.path.isfile(path):\n                continue\n            mat.use_nodes = True\n            nt = mat.node_tree\n            bsdf = next((n for n in nt.nodes if n.type == \"BSDF_PRINCIPLED\"), None)\n            if bsdf is None:\n                bsdf = nt.nodes.new(\"ShaderNodeBsdfPrincipled\")\n                out = next((n for n in nt.nodes if n.type == \"OUTPUT_MATERIAL\"), None) or nt.nodes.new(\"ShaderNodeOutputMaterial\")\n                nt.links.new(bsdf.outputs[0], out.inputs[0])\n            base = bsdf.inputs.get(\"Base Color\")\n            img_node = None\n            if base and base.is_linked and base.links[0].from_node.type == \"TEX_IMAGE\":\n                img_node = base.links[0].from_node\n            if img_node is None:\n                img_node = nt.nodes.new(\"ShaderNodeTexImage\")\n                img_node.location = (bsdf.location.x - 320, bsdf.location.y)\n                if base:\n                    nt.links.new(img_node.outputs[\"Color\"], base)\n            if img_node.image is None:\n                try:\n                    img_node.image = bpy.data.images.load(path, check_existing=True)\n                except Exception:\n                    continue\n            # Transparenz nur, wenn das Bild wirklich einen Alphakanal hat\n            has_alpha = base_name(mat.name) in alpha_mats\n            alpha_in = bsdf.inputs.get(\"Alpha\")\n            if has_alpha and alpha_in is not None:\n                if not alpha_in.is_linked:\n                    nt.links.new(img_node.outputs[\"Alpha\"], alpha_in)\n                if hasattr(mat, \"surface_render_method\"):\n                    mat.surface_render_method = \"DITHERED\"\n                elif hasattr(mat, \"blend_method\"):\n                    mat.blend_method = \"HASHED\"\n                    if hasattr(mat, \"shadow_method\"):\n                        mat.shadow_method = \"HASHED\"\n            elif alpha_in is not None and alpha_in.is_linked:\n                for l in list(alpha_in.links):\n                    nt.links.remove(l)\n                alpha_in.default_value = 1.0\n            # in der Solid-Ansicht dieselbe Textur zeigen\n            nt.nodes.active = img_node\n\n\ndef show_textures_in_viewport():\n    for win in bpy.context.window_manager.windows:\n        for area in win.screen.areas:\n            if area.type != \"VIEW_3D\":\n                continue\n            for space in area.spaces:\n                if space.type == \"VIEW_3D\" and space.shading.type == \"SOLID\":\n                    space.shading.color_type = \"TEXTURE\"\n\n\ndef import_job(folder, info_path):\n    p = prefs()\n    with open(info_path, \"r\", encoding=\"utf-8\") as fh:\n        info = json.load(fh)\n    name = info.get(\"name\", os.path.basename(folder))\n    files = info.get(\"obj\") or [f for f in os.listdir(folder) if f.lower().endswith(\".obj\")]\n    if isinstance(files, str):\n        files = [files]\n    before = set(bpy.data.objects)\n    for f in files:\n        path = os.path.join(folder, f)\n        if hasattr(bpy.ops.wm, \"obj_import\"):\n            run_op(bpy.ops.wm.obj_import, filepath=path, forward_axis=\"NEGATIVE_Z\", up_axis=\"Y\")\n        else:\n            run_op(bpy.ops.import_scene.obj, filepath=path, axis_forward=\"-Z\", axis_up=\"Y\")\n    new = [o for o in bpy.data.objects if o not in before]\n\n    if p is None or p.own_collection:\n        col = bpy.data.collections.new(name)\n        bpy.context.scene.collection.children.link(col)\n        for o in new:\n            for c in list(o.users_collection):\n                c.objects.unlink(o)\n            col.objects.link(o)\n\n    if p is None or p.smooth:\n        make_smooth(new)\n\n    try:\n        fix_materials(new, folder)\n    except Exception as e:\n        _state[\"error\"] = \"Texturen: \" + str(e)\n    if p is None or p.show_textures:\n        try:\n            show_textures_in_viewport()\n        except Exception:\n            pass\n\n    try:\n        for o in bpy.context.view_layer.objects:\n            o.select_set(False)\n        for o in new:\n            o.select_set(True)\n        if new:\n            bpy.context.view_layer.objects.active = new[0]\n        if (p is None or p.focus) and new:\n            run_op(bpy.ops.view3d.view_selected)\n    except Exception:\n        pass\n\n    open(os.path.join(folder, \".importiert\"), \"w\").close()\n    _state[\"last\"] = name\n    _state[\"count\"] += 1\n    if not _state[\"error\"].startswith(\"Texturen\"):\n        _state[\"error\"] = \"\"\n    return name, len(new)\n\n\ndef poll_timer():\n    p = prefs()\n    if p is None or not p.auto_import:\n        return TIMER_INTERVAL\n    try:\n        for _, folder, info in pending_jobs():\n            # kurz warten, falls der Konverter noch schreibt\n            if time.time() - os.path.getmtime(info) < 0.5:\n                continue\n            import_job(folder, info)\n    except Exception as e:\n        _state[\"error\"] = str(e)\n    return TIMER_INTERVAL\n\n\n# ---------- Bedienung ----------\n\nclass MELONE_OT_import_now(bpy.types.Operator):\n    bl_idname = \"melone.import_now\"\n    bl_label = \"Jetzt importieren\"\n    bl_description = \"Alle neuen Modelle aus dem Melonenkonverter importieren\"\n\n    def execute(self, context):\n        jobs = pending_jobs()\n        if not jobs:\n            self.report({\"INFO\"}, \"Keine neuen Modelle\")\n            return {\"FINISHED\"}\n        for _, folder, info in jobs:\n            try:\n                name, n = import_job(folder, info)\n                self.report({\"INFO\"}, \"Importiert: %s (%d Objekte)\" % (name, n))\n            except Exception as e:\n                self.report({\"ERROR\"}, str(e))\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_reimport_last(bpy.types.Operator):\n    bl_idname = \"melone.reimport_last\"\n    bl_label = \"Letztes erneut laden\"\n    bl_description = \"Das zuletzt gesendete Modell noch einmal importieren\"\n\n    def execute(self, context):\n        root = bridge_dir()\n        if not os.path.isdir(root):\n            self.report({\"WARNING\"}, \"Verbindungsordner nicht gefunden\")\n            return {\"CANCELLED\"}\n        cands = [os.path.join(root, d) for d in os.listdir(root) if os.path.isfile(os.path.join(root, d, \"melone.json\"))]\n        if not cands:\n            self.report({\"INFO\"}, \"Noch nichts gesendet\")\n            return {\"CANCELLED\"}\n        last = max(cands, key=lambda d: os.path.getmtime(os.path.join(d, \"melone.json\")))\n        name, n = import_job(last, os.path.join(last, \"melone.json\"))\n        self.report({\"INFO\"}, \"Importiert: %s\" % name)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_open_folder(bpy.types.Operator):\n    bl_idname = \"melone.open_folder\"\n    bl_label = \"Ordner \u00f6ffnen\"\n\n    def execute(self, context):\n        d = bridge_dir()\n        os.makedirs(d, exist_ok=True)\n        bpy.ops.wm.path_open(filepath=d)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_cleanup(bpy.types.Operator):\n    bl_idname = \"melone.cleanup\"\n    bl_label = \"Alte Sendungen l\u00f6schen\"\n    bl_description = \"Bereits importierte Modelle aus dem Verbindungsordner entfernen (nicht aus der Szene)\"\n\n    def execute(self, context):\n        import shutil\n        root, n = bridge_dir(), 0\n        if os.path.isdir(root):\n            for d in os.listdir(root):\n                full = os.path.join(root, d)\n                if os.path.isdir(full) and os.path.exists(os.path.join(full, \".importiert\")):\n                    shutil.rmtree(full, ignore_errors=True)\n                    n += 1\n        self.report({\"INFO\"}, \"%d alte Sendungen gel\u00f6scht\" % n)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_show_textures(bpy.types.Operator):\n    bl_idname = \"melone.show_textures\"\n    bl_label = \"Texturen anzeigen\"\n    bl_description = \"Schaltet die 3D-Ansicht so, dass Texturen sichtbar sind\"\n\n    def execute(self, context):\n        show_textures_in_viewport()\n        return {\"FINISHED\"}\n\n\nclass MELONE_PT_panel(bpy.types.Panel):\n    bl_label = \"Melonenkonverter\"\n    bl_space_type = \"VIEW_3D\"\n    bl_region_type = \"UI\"\n    bl_category = \"Melone\"\n\n    def draw(self, context):\n        p = prefs()\n        lay = self.layout\n        ok = os.path.isdir(bridge_dir())\n        box = lay.box()\n        box.label(text=\"Verbunden\" if ok else \"Wartet auf Konverter \u2026\", icon=\"LINKED\" if ok else \"UNLINKED\")\n        if _state[\"last\"]:\n            box.label(text=\"Zuletzt: \" + _state[\"last\"], icon=\"IMPORT\")\n        if _state[\"error\"]:\n            box.label(text=_state[\"error\"][:60], icon=\"ERROR\")\n        if p:\n            lay.prop(p, \"auto_import\")\n            lay.prop(p, \"smooth\")\n            lay.prop(p, \"own_collection\")\n            lay.prop(p, \"show_textures\")\n        lay.operator(\"melone.import_now\", icon=\"IMPORT\")\n        lay.operator(\"melone.reimport_last\", icon=\"FILE_REFRESH\")\n        lay.operator(\"melone.show_textures\", icon=\"TEXTURE\")\n        row = lay.row(align=True)\n        row.operator(\"melone.open_folder\", icon=\"FILE_FOLDER\")\n        row.operator(\"melone.cleanup\", icon=\"TRASH\", text=\"\")\n        if p:\n            lay.prop(p, \"bridge_dir\", text=\"\")\n\n\nclasses = (MELONE_Prefs, MELONE_OT_show_textures, MELONE_OT_import_now, MELONE_OT_reimport_last, MELONE_OT_open_folder, MELONE_OT_cleanup, MELONE_PT_panel)\n\n\ndef register():\n    for c in classes:\n        bpy.utils.register_class(c)\n    if not bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.register(poll_timer, first_interval=2.0, persistent=True)\n\n\ndef unregister():\n    if bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.unregister(poll_timer)\n    for c in reversed(classes):\n        bpy.utils.unregister_class(c)\n\n\nif __name__ == \"__main__\":\n    register()\n";
 async function bridgeRoot(){
   if (mk && mk.bridgeDir) return await mk.bridgeDir();
   if (!S.bridgeDir){
@@ -1464,6 +1506,7 @@ async function bridgeRoot(){
 async function sendToBlender(f){
   if (!mk){ toast('„An Blender senden“ geht nur im Programm, nicht im Browser.','err'); return; }
   if (!f || !f.model){ toast('Wähle zuerst links ein Modell aus.','err'); return; }
+  if (!S.blSetup) openGuide();
   var root=await bridgeRoot(); if (!root) return;
   f.status='busy'; render(); hxBurst(2000); hxProgress('bridge '+f.name);
   try {
@@ -1482,12 +1525,14 @@ async function sendToBlender(f){
 async function saveAddon(){
   var name='melonenkonverter_blender.py';
   if (mk){
-    var d=await mk.pickFolder(); if (!d) return;
+    toast('Wähle den Ordner, in dem das Add-on gespeichert werden soll (z. B. Downloads).');
+    var d=await mk.pickFolder(); if (!d) return null;
     await mk.writeFiles(d,[{ name:name, data:ADDON_SRC }]);
-    toast('Add-on gespeichert. In Blender: Bearbeiten → Einstellungen → Add-ons → Installieren und die Datei wählen.','ok',9000);
     mk.openFolder(d);
+    return d+(d.indexOf('\\')>=0?'\\':'/')+name;
   } else {
     var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([ADDON_SRC],{type:'text/x-python'})); a.download=name; a.click();
+    return 'Download-Ordner deines Browsers';
   }
 }
 
@@ -1515,7 +1560,18 @@ $('convertAll').onclick = async function(){
   log((bad?'✗ ':'✓ ')+(todo.length-bad)+' von '+todo.length+' Datei(en) umgewandelt'+(bad?' · '+bad+' mit Fehler':''), bad?'err':'ok'); hx(todo.length+' Datei(en) fertig ✓');
 };
 $('toBlender').onclick = function(){ sendToBlender(selected); };
-$('addonBtn').onclick = saveAddon;
+function openGuide(){ $('gSaved').textContent=''; $('blGuide').classList.add('on'); }
+$('addonBtn').onclick = openGuide;
+$('blHead').onclick = openGuide;
+$('gClose').onclick = function(){ $('blGuide').classList.remove('on'); };
+$('gDone').onclick = function(){ S.blSetup=true; save(); $('blGuide').classList.remove('on'); toast('Blender ist eingerichtet. Mit „An Blender“ oder Strg + B schickst du Modelle rüber.','ok',5000); };
+$('blGuide').onclick = function(e){ if (e.target===this) this.classList.remove('on'); };
+$('gSave').onclick = async function(){
+  var b=this; b.disabled=true;
+  try { var where=await saveAddon(); if (where) $('gSaved').textContent='✓ Gespeichert: '+where; }
+  catch(e){ $('gSaved').textContent='Fehler: '+clean(e); }
+  b.disabled=false;
+};
 $('bridgePick').onclick = async function(){ var d=await mk.pickFolder(); if (d){ S.bridgeDir=d; save(); applyUI(); } };
 $('helpBtn').onclick = function(){ $('help').classList.add('on'); };
 $('helpClose').onclick = function(){ $('help').classList.remove('on'); };
@@ -1550,7 +1606,7 @@ function removeFile(f){
 // ---------- Tastenkürzel ----------
 window.addEventListener('keydown',function(e){
   if (e.key==='F1'){ e.preventDefault(); $('help').classList.toggle('on'); return; }
-  if (e.key==='Escape' && $('help').classList.contains('on')){ $('help').classList.remove('on'); return; }
+  if (e.key==='Escape' && ($('help').classList.contains('on')||$('blGuide').classList.contains('on')||$('aiDlg').classList.contains('on'))){ $('help').classList.remove('on'); $('blGuide').classList.remove('on'); $('aiDlg').classList.remove('on'); return; }
   if (tb.open || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   var k=e.key.toLowerCase();
   if (e.ctrlKey && k==='o'){ e.preventDefault(); drop.onclick(); }
@@ -1684,7 +1740,8 @@ function renderMats(f, li){
     var n=document.createElement('div'); n.className='mn'; n.textContent=m.name;
     var st=document.createElement('div'); st.className='ms';
     var state=document.createElement('span');
-    if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name; }
+    if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name+(ov.variant>1?' (1 von '+ov.variant+' Farben – klicken zum Wechseln)':''); }
+    else if (ov && ov.ai){ state.className='ok'; state.textContent='✨ '+ov.name; }
     else if (ov){ state.className='ok'; state.textContent='✓ '+ov.name; }
     else if (img && img.rgba){ state.className='ok'; state.textContent='✓ Textur gefunden'; }
     else if (m.color){ state.textContent='Farbe'; }
@@ -1692,7 +1749,8 @@ function renderMats(f, li){
     else { state.className='no'; state.textContent='ohne Textur'; }
     var b=document.createElement('button'); b.textContent= ov ? 'ändern' : 'zuweisen'; b.title='Textur für dieses Teil wählen (PAA, PNG, JPG …)';
     b.onclick=function(){ texTarget={f:f,key:m.key}; $('texIn').click(); };
-    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b);
+    var ai=document.createElement('button'); ai.textContent='✨ KI'; ai.title='Textur per Prompt von der KI erstellen lassen'; ai.onclick=function(){ openAI(f, m); };
+    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b); st.appendChild(ai);
     if (ov){ var x=document.createElement('button'); x.textContent='✕'; x.title='Zuweisung entfernen'; x.onclick=function(){ delete f.override[m.key]; refreshView(); }; st.appendChild(x); }
     info.appendChild(n); info.appendChild(st);
     d.title=(m.tex||'keine Textur im Modell')+(m.mat?'\n'+m.mat:'')+'\nKlicken zum Durchsuchen';
@@ -1779,6 +1837,16 @@ async function autoAssign(f){
         f.override=f.override||{}; f.override[m.key]={ img:img, name:r[0].it.name, auto:true };
         hx('auto-match '+m.name+' → '+r[0].it.name+' (score '+r[0].s+')');
       } catch(e){ hx('auto-match '+r[0].it.name+' unlesbar','w'); }
+    } else if (!m.tex && r[0].s>=12 && !MK.isBadMap(r[0].it.name)){
+      // Teil ohne Textur im Modell (Farbvariante, wird im Spiel per Config gesetzt):
+      // passende Farbvariante nehmen, Schwarz bevorzugen – im Browser umschaltbar
+      var top=r.filter(function(x){ return x.s===r[0].s && !MK.isBadMap(x.it.name); });
+      top.sort(function(a,b){ function pr(n){ n=n.toLowerCase(); return /(^|_)(blk|black|schwarz)(_|$)/.test(n)?0:1; } return pr(a.it.name)-pr(b.it.name) || a.it.name.localeCompare(b.it.name); });
+      try {
+        var img2=await libImg(top[0].it);
+        f.override=f.override||{}; f.override[m.key]={ img:img2, name:top[0].it.name, auto:true, variant:top.length };
+        hx('auto-match '+m.name+' → '+top[0].it.name+' (1 von '+top.length+' Varianten)');
+      } catch(e){}
     } else hx('auto-match '+m.name+' → kein sicherer Treffer','w');
   }
 }
@@ -1868,6 +1936,93 @@ window.addEventListener('keydown',function(e){
   else if (e.key==='Enter'){ e.preventDefault(); closeTB(true); }
 });
 $('tbStrip').addEventListener('wheel',function(e){ if (Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); this.scrollLeft+=e.deltaY; } },{passive:false});
+
+// ---------- KI-Texturen (Gemini) ----------
+$('aiKey').value=S.aiKey||''; $('aiModel').value=S.aiModel;
+$('aiKey').onchange=function(){ S.aiKey=this.value.trim(); save(); };
+$('aiModel').onchange=function(){ S.aiModel=this.value; save(); };
+var ai={ f:null, m:null, busy:false, n:0 };
+function openAI(f, m){
+  ai.f=f; ai.m=m;
+  $('aiMat').textContent=m.name; $('aiMsg').textContent=''; $('aiOut').style.display='none';
+  $('aiPrompt').value = (f.aiPrompts && f.aiPrompts[m.key]) || '';
+  $('aiDlg').classList.add('on'); setTimeout(function(){ $('aiPrompt').focus(); }, 50);
+  if (!S.aiKey) $('aiMsg').innerHTML='<span style="color:var(--yellow)">Trag zuerst rechts unter <b>KI-Texturen</b> deinen Gemini-API-Schlüssel ein.</span>';
+}
+$('aiClose').onclick=function(){ $('aiDlg').classList.remove('on'); };
+$('aiPrompt').onkeydown=function(e){ if (e.key==='Enter' && (e.ctrlKey||!e.shiftKey)){ e.preventDefault(); $('aiGo').click(); } };
+function uvLayout(f, key, size){
+  var li=f.lodPick!=null?f.lodPick:MK.defaultLod(f.model), lod=f.model.lods[li];
+  var c=document.createElement('canvas'); c.width=c.height=size; var g=c.getContext('2d');
+  g.fillStyle='#000'; g.fillRect(0,0,size,size); g.strokeStyle='#fff'; g.lineWidth=Math.max(1,size/700); g.beginPath();
+  lod.faces.forEach(function(fc){ if (MK.materialKey(fc)!==key) return;
+    var v=fc.v; for (var i=0;i<v.length;i++){ var a=v[i], b=v[(i+1)%v.length];
+      var ax=((a.u%1)+1)%1*size, ay=((a.v%1)+1)%1*size, bx=((b.u%1)+1)%1*size, by=((b.v%1)+1)%1*size;
+      if (Math.abs(ax-bx)>size/2||Math.abs(ay-by)>size/2) continue; g.moveTo(ax,ay); g.lineTo(bx,by); } });
+  g.stroke();
+  return c.toDataURL('image/png').split(',')[1];
+}
+$('aiGo').onclick=async function(){
+  if (ai.busy || !ai.f) return;
+  var prompt=$('aiPrompt').value.trim(), msg=$('aiMsg');
+  if (!S.aiKey){ msg.innerHTML='<span style="color:var(--yellow)">Kein API-Schlüssel eingetragen (rechts unter KI-Texturen).</span>'; return; }
+  if (!prompt){ msg.textContent='Bitte kurz beschreiben, was drauf soll.'; return; }
+  ai.f.aiPrompts=ai.f.aiPrompts||{}; ai.f.aiPrompts[ai.m.key]=prompt;
+  var seamless=$('aiSeamless').checked, useUV=$('aiUV').checked;
+  var full='Create a texture map image (albedo / base color only) for a 3D game model. '+
+    'Flat, top-down, evenly lit, no perspective, no shadows, no lighting, no reflections, no visible objects, no text, no watermark, no border or frame. '+
+    'The material must fill the whole square image edge to edge. '+
+    (seamless?'The texture must tile seamlessly: the left edge must continue on the right edge and the top on the bottom. ':'')+
+    (useUV?'The attached black image with white lines is the UV layout of this model part. Paint the texture so it fits inside these UV areas, but do NOT draw the white lines themselves and keep the background filled with the material. ':'')+
+    'Description of the material (may be German): '+prompt;
+  var parts=[{ text: full }];
+  if (useUV) parts.push({ inline_data:{ mime_type:'image/png', data: uvLayout(ai.f, ai.m.key, 1024) } });
+  var cfg={ responseModalities:['IMAGE'], imageConfig:{ aspectRatio:'1:1' } };
+  if ($('ai2k').checked) cfg.imageConfig.imageSize='2K';
+  ai.busy=true; var btn=this; btn.disabled=true; btn.textContent='Erstellt …';
+  msg.style.color=''; msg.textContent='Die KI malt … (meist 5–20 Sekunden)';
+  hx('ai.request model='+S.aiModel+' prompt="'+prompt.slice(0,60)+'"'); hxBurst(8000);
+  try {
+    var url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.aiModel)+':generateContent';
+    var payload=JSON.stringify({ contents:[{ role:'user', parts:parts }], generationConfig: cfg }), res, j=null;
+    if (mk && mk.aiRequest){ var rr=await mk.aiRequest(url, S.aiKey, payload); res={ ok:rr.ok, status:rr.status }; j=rr.json; }
+    else {
+      try { res=await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': S.aiKey }, body: payload }); }
+      catch(x){ throw new Error('Keine Verbindung zu Google. Internet prüfen (oder Programm-Update installieren).'); }
+      try { j=await res.json(); } catch(x){}
+    }
+    if (!res.ok){
+      var em=(j && j.error && j.error.message) || ('Fehler '+res.status);
+      if (res.status===400 && /API key/i.test(em)) em='Der API-Schlüssel ist ungültig.';
+      else if (res.status===403) em='Der Schlüssel hat keinen Zugriff auf dieses Modell. ('+em+')';
+      else if (res.status===429) em='Limit erreicht – kurz warten oder bei Google das Kontingent prüfen.';
+      else if (res.status===404) em='Modell nicht gefunden – wähle rechts ein anderes Modell.';
+      throw new Error(em);
+    }
+    var cand=j && j.candidates && j.candidates[0], ps=(cand && cand.content && cand.content.parts)||[], imgPart=null, txt='';
+    ps.forEach(function(p){ var d=p.inlineData||p.inline_data; if (d && d.data && !imgPart) imgPart=d; else if (p.text) txt+=p.text; });
+    if (!imgPart){
+      var why = (cand && cand.finishReason) || (j && j.promptFeedback && j.promptFeedback.blockReason) || '';
+      throw new Error('Die KI hat kein Bild geliefert'+(why?' ('+why+')':'')+(txt?': '+txt.slice(0,160):'')+'. Formuliere den Prompt etwas anders.');
+    }
+    var bin=atob(imgPart.data), u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    var img=await decodeImageBytes(u8);
+    ai.n++;
+    var name='ki_'+MK.safeName(ai.m.name)+'_'+ai.n+'.png';
+    var it=libAdd({ name:name, file:new File([u8], name, { type:imgPart.mimeType||imgPart.mime_type||'image/png' }) }, true); it.img=img;
+    ai.f.override=ai.f.override||{}; ai.f.override[ai.m.key]={ img:img, name:name, ai:true };
+    if (ai.f===selected){ refreshView(); }
+    $('aiImg').style.backgroundImage='url(data:'+(imgPart.mimeType||imgPart.mime_type||'image/png')+';base64,'+imgPart.data+')';
+    $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+img.width+' × '+img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Prompt ändern und nochmal <b>Erstellen</b>. Alle Versuche findest du auch im Textur-Browser.';
+    $('aiInfo').querySelector('b').textContent=name;
+    $('aiOut').style.display='flex';
+    msg.style.color='var(--green)'; msg.textContent='✓ Fertig';
+    hx('ai.response '+name+' '+img.width+'x'+img.height+' ✓');
+  } catch(e){
+    msg.style.color='var(--red)'; msg.textContent=clean(e); hx('ai.error '+clean(e),'e');
+  }
+  ai.busy=false; btn.disabled=false; btn.textContent='✨ Erstellen';
+};
 
 // ---------- Bildansicht für Texturen ----------
 var imgCache=null;

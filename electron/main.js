@@ -241,6 +241,14 @@ ipcMain.handle('a:bridgeDir', () => {
   return d;
 });
 ipcMain.handle('a:showItem', (e, p) => shell.showItemInFolder(p));
+// KI-Anfrage über das Programm schicken (kein Browser-CORS, Proxy-Einstellungen von Windows)
+ipcMain.handle('a:aiRequest', async (e, url, key, body) => {
+  if (!/^https:\/\/generativelanguage\.googleapis\.com\//.test(url)) throw new Error('Ungültige Adresse');
+  const res = await net.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body });
+  const text = await res.text();
+  let json = null; try { json = JSON.parse(text); } catch (x) {}
+  return { status: res.status, ok: res.ok, json };
+});
 
 function searchByName(dir, name, depth, budget) {
   if (depth < 0 || budget.n <= 0) return null;

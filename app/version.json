@@ -1,5 +1,5 @@
 {
-  "version": "1.0.17",
+  "version": "1.0.21",
   "date": "2026-11-22",
   "changelog": "🍉 Melonenkonverter 1.0.0\n\n✨ Neu\n• P3D-Dateien (Arma/DayZ) reinziehen und automatisch als OBJ speichern\n• Materialdatei (.mtl) und PAA-Texturen werden als PNG gleich mitgeliefert\n• 3D-Vorschau mit Texturen, LOD-Auswahl und Rückseiten-Check\n• Ordner überwachen: neue P3D-Dateien werden sofort umgewandelt\n• Ausrichtung passt direkt für Blender"
 }
