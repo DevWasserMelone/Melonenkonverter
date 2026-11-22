@@ -1,5 +1,5 @@
 {
-  "version": "1.0.22",
+  "version": "1.0.23",
   "date": "2026-11-22",
-  "changelog": "✨ Melonenkonverter 1.0.22\n\n✨ Neu\n• Eingebauter Textur-Generator: gratis, offline, unbegrenzt (Stoff, Tarnmuster, Metall, Holz, Leder, Rost …)\n• Kostenlose Online-KI ohne Konto als zweite Quelle\n• Quelle wählbar unter „Texturen erstellen“"
+  "changelog": "✨ Melonenkonverter 1.0.23\n\n✨ Neu\n• Online-KI ist jetzt Standard (gratis, ohne Konto)\n• KI kennt Modell- und Teilnamen und versteht deutsche Prompts besser\n• Texturen für alle fehlenden Teile auf einmal erstellen"
 }
