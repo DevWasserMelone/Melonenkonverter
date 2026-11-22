@@ -1301,7 +1301,7 @@ async function addEntries(entries){
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
     if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
-    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; if (hasModel) continue; }
+    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; }
     else if (!/\.(p3d|obj)$/.test(low)) continue;
     var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
@@ -1719,7 +1719,7 @@ function renderMats(f, li){
     var n=document.createElement('div'); n.className='mn'; n.textContent=m.name;
     var st=document.createElement('div'); st.className='ms';
     var state=document.createElement('span');
-    if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name; }
+    if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name+(ov.variant>1?' (1 von '+ov.variant+' Farben – klicken zum Wechseln)':''); }
     else if (ov){ state.className='ok'; state.textContent='✓ '+ov.name; }
     else if (img && img.rgba){ state.className='ok'; state.textContent='✓ Textur gefunden'; }
     else if (m.color){ state.textContent='Farbe'; }
@@ -1814,6 +1814,16 @@ async function autoAssign(f){
         f.override=f.override||{}; f.override[m.key]={ img:img, name:r[0].it.name, auto:true };
         hx('auto-match '+m.name+' → '+r[0].it.name+' (score '+r[0].s+')');
       } catch(e){ hx('auto-match '+r[0].it.name+' unlesbar','w'); }
+    } else if (!m.tex && r[0].s>=12 && !MK.isBadMap(r[0].it.name)){
+      // Teil ohne Textur im Modell (Farbvariante, wird im Spiel per Config gesetzt):
+      // passende Farbvariante nehmen, Schwarz bevorzugen – im Browser umschaltbar
+      var top=r.filter(function(x){ return x.s===r[0].s && !MK.isBadMap(x.it.name); });
+      top.sort(function(a,b){ function pr(n){ n=n.toLowerCase(); return /(^|_)(blk|black|schwarz)(_|$)/.test(n)?0:1; } return pr(a.it.name)-pr(b.it.name) || a.it.name.localeCompare(b.it.name); });
+      try {
+        var img2=await libImg(top[0].it);
+        f.override=f.override||{}; f.override[m.key]={ img:img2, name:top[0].it.name, auto:true, variant:top.length };
+        hx('auto-match '+m.name+' → '+top[0].it.name+' (1 von '+top.length+' Varianten)');
+      } catch(e){}
     } else hx('auto-match '+m.name+' → kein sicherer Treffer','w');
   }
 }
