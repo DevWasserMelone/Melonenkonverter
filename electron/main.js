@@ -244,10 +244,19 @@ ipcMain.handle('a:showItem', (e, p) => shell.showItemInFolder(p));
 // KI-Anfrage über das Programm schicken (kein Browser-CORS, Proxy-Einstellungen von Windows)
 // kostenlose Online-Bild-KI (ohne Konto)
 ipcMain.handle('a:httpGetImage', async (e, url) => {
-  if (!/^https:\/\/image\.pollinations\.ai\//.test(url)) throw new Error('Ungültige Adresse');
+  if (!/^https:\/\/(image|gen)\.pollinations\.ai\//.test(url)) throw new Error('Ungültige Adresse');
   const res = await net.fetch(url, { headers: { 'User-Agent': 'Melonenkonverter' } });
   const buf = Buffer.from(await res.arrayBuffer());
   return { status: res.status, ok: res.ok, type: res.headers.get('content-type') || '', data: buf.toString('base64') };
+});
+// lokale Bild-KI (Stable Diffusion WebUI / Forge mit --api) auf diesem PC
+ipcMain.handle('a:localSD', async (e, base, body) => {
+  if (!/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(base)) throw new Error('Nur lokale Adressen erlaubt');
+  let res;
+  try { res = await net.fetch(base + '/sdapi/v1/txt2img', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }); }
+  catch (x) { return { status: 0, ok: false, json: null }; }
+  const text = await res.text(); let json = null; try { json = JSON.parse(text); } catch (x) {}
+  return { status: res.status, ok: res.ok, json };
 });
 ipcMain.handle('a:aiRequest', async (e, url, key, body) => {
   if (!/^https:\/\/generativelanguage\.googleapis\.com\//.test(url)) throw new Error('Ungültige Adresse');
