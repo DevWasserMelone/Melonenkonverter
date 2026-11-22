@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('mk', {
   bridgeDir: () => ipcRenderer.invoke('a:bridgeDir'),
   showItem: (p) => ipcRenderer.invoke('a:showItem', p),
   aiRequest: (url, key, body) => ipcRenderer.invoke('a:aiRequest', url, key, body),
+  httpGetImage: (url) => ipcRenderer.invoke('a:httpGetImage', url),
   watch: (dir) => ipcRenderer.invoke('a:watch', dir),
   unwatch: () => ipcRenderer.invoke('a:unwatch'),
   onWatched: (cb) => ipcRenderer.on('a:watched', (e, p) => cb(p)),

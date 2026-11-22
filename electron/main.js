@@ -242,6 +242,13 @@ ipcMain.handle('a:bridgeDir', () => {
 });
 ipcMain.handle('a:showItem', (e, p) => shell.showItemInFolder(p));
 // KI-Anfrage über das Programm schicken (kein Browser-CORS, Proxy-Einstellungen von Windows)
+// kostenlose Online-Bild-KI (ohne Konto)
+ipcMain.handle('a:httpGetImage', async (e, url) => {
+  if (!/^https:\/\/image\.pollinations\.ai\//.test(url)) throw new Error('Ungültige Adresse');
+  const res = await net.fetch(url, { headers: { 'User-Agent': 'Melonenkonverter' } });
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { status: res.status, ok: res.ok, type: res.headers.get('content-type') || '', data: buf.toString('base64') };
+});
 ipcMain.handle('a:aiRequest', async (e, url, key, body) => {
   if (!/^https:\/\/generativelanguage\.googleapis\.com\//.test(url)) throw new Error('Ungültige Adresse');
   const res = await net.fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body });
