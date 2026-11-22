@@ -333,7 +333,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       for (i = 1; i < order.length && good; i++) good = s[order[i]] >= e[order[i - 1]];
       if (good) { starts = s; ends = e; }
     }
-    if (!starts) throw odolErr(ver, 'LOD-Adressen nicht gefunden.');
+    if (!starts) throw odolErr(ver, 'LOD-Adressen nicht gefunden (LODs ' + lodCount + ', Auflösungen ' + res.map(function (x) { return +x.toPrecision(3); }).join('/') + ').');
 
     var lods = [], problems = [];
     for (i = 0; i < lodCount; i++) {
@@ -350,22 +350,47 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   function readOdolLod(u8, dv, start, end, ver, resolution) {
     var r = new Reader(u8.subarray(0, end)); r.p = start;
     var U32 = function (p) { return dv.getUint32(p, true); }, F32 = function (p) { return dv.getFloat32(p, true); };
-    // Proxys
-    var nProx = r.u32(); if (nProx > 10000) throw new Error('Kopf unlesbar (Proxys)');
-    for (var i = 0; i < nProx; i++) { r.str(); r.p += 48 + 12 + (ver >= 40 ? 4 : 0); }
-    var n = r.u32(); if (n > 100000) throw new Error('Kopf unlesbar (Skelett)'); r.p += n * 4;
-    n = r.u32(); if (n > 100000) throw new Error('Kopf unlesbar (Skelett 2)');
-    for (i = 0; i < n; i++) { var m = r.u32(); if (m > 100000) throw new Error('Kopf unlesbar (Skelett 3)'); r.p += m * 4; }
-    var vc = r.u32();
-    if (ver >= 51) r.f32();
-    r.u32(); r.u32();
-    var bmin = [r.f32(), r.f32(), r.f32()], bmax = [r.f32(), r.f32(), r.f32()];
-    r.p += 16; // Mitte + Radius
-    if (!(bmin[0] <= bmax[0] && bmin[1] <= bmax[1] && bmin[2] <= bmax[2]) || !f32ok(bmin[0]) || !f32ok(bmax[0]) || vc > 5e6)
-      throw new Error('Kopf unlesbar (Box)');
-    var nTex = r.u32(); if (nTex > 10000) throw new Error('Kopf unlesbar (Texturen)');
-    var textures = []; for (i = 0; i < nTex; i++) textures.push(r.str());
-    var after = r.p;
+    function printable(t) { for (var k = 0; k < t.length; k++) { var c = t.charCodeAt(k); if (c < 32 || c > 126) return false; } return t.length < 512; }
+    function directHead() {
+      var nProx = r.u32(); if (nProx > 10000) throw new Error('Proxys');
+      for (var i = 0; i < nProx; i++) { if (!printable(r.str())) throw new Error('Proxyname'); r.p += 48 + 12 + (ver >= 40 ? 4 : 0); }
+      var n = r.u32(); if (n > 100000) throw new Error('Skelett'); r.p += n * 4;
+      n = r.u32(); if (n > 100000) throw new Error('Skelett 2');
+      for (i = 0; i < n; i++) { var m = r.u32(); if (m > 100000) throw new Error('Skelett 3'); r.p += m * 4; }
+      return headFrom(r.p);
+    }
+    // ab Punktanzahl: [Fläche] Hints Box Mitte Radius Texturen
+    function headFrom(p0) {
+      var q = p0, v = U32(q); q += 4;
+      if (v > 5e6) throw new Error('Punktanzahl');
+      if (ver >= 51) { var fa = F32(q); if (!(fa >= 0 && fa < 1e9)) throw new Error('Fläche'); q += 4; }
+      q += 8;
+      var bb = []; for (var k = 0; k < 10; k++) bb.push(F32(q + k * 4));
+      if (!bb.every(function (x) { return f32ok(x, 1e5); })) throw new Error('Box');
+      if (!(bb[0] <= bb[3] && bb[1] <= bb[4] && bb[2] <= bb[5]) || bb[9] < 0) throw new Error('Box');
+      q += 40;
+      var nT = U32(q); q += 4; if (nT > 1000) throw new Error('Texturen');
+      var tex = [];
+      for (k = 0; k < nT; k++) {
+        var e = q; while (e < end && u8[e] !== 0) e++;
+        if (e >= end) throw new Error('Texturen');
+        var t = ''; for (var j = q; j < e; j++) t += String.fromCharCode(u8[j]);
+        if (!printable(t)) throw new Error('Texturname');
+        tex.push(t); q = e + 1;
+      }
+      return { vc: v, bmin: bb.slice(0, 3), bmax: bb.slice(3, 6), textures: tex, after: q };
+    }
+    var head = null, headErr = '';
+    try { head = directHead(); } catch (ex) { headErr = ex.message; }
+    if (!head) {
+      // Ersatz: Kopf anhand von Box + Texturliste suchen
+      for (var hp = start; hp < Math.min(end - 60, start + 400000) && !head; hp++) {
+        try { var h = headFrom(hp); if (h.vc >= 3 && (h.textures.length || h.bmax[0] > h.bmin[0])) head = h; } catch (ex) {}
+      }
+      if (!head) throw new Error('Kopf unlesbar (' + headErr + ')');
+    }
+    var vc = head.vc, bmin = head.bmin, bmax = head.bmax, textures = head.textures, nTex = textures.length, i, n;
+    var after = head.after;
     if (vc === 0) return { resolution: resolution, points: new Float32Array(0), normals: new Float32Array(0), faces: [], selections: [], nPoints: 0, nFaces: 0 };
 
     // Flächen suchen
@@ -490,10 +515,10 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
         var L = dd.data.length, es = L / cnt;
         diag.push('@' + (p0 - start) + ':' + L + 'B/' + (Math.round(es * 100) / 100));
         if (es !== 6 && es !== 8) return;
-        var lo = bmin, hi = bmax;
+        var lo = bmin, hi = bmax, own = false;
         if (p0 - 24 >= start) {
           var q = [0, 1, 2, 3, 4, 5].map(function (k) { return F32(p0 - 24 + k * 4); });
-          if (q.every(function (x) { return f32ok(x, 1e5); }) && q[0] <= q[3] && q[1] <= q[4] && q[2] <= q[5] && (q[3] - q[0]) + (q[4] - q[1]) > 0) { lo = q.slice(0, 3); hi = q.slice(3); }
+          if (q.every(function (x) { return f32ok(x, 1e5); }) && q[0] <= q[3] && q[1] <= q[4] && q[2] <= q[5] && (q[3] - q[0]) + (q[4] - q[1]) > 0) { lo = q.slice(0, 3); hi = q.slice(3); own = true; }
         }
         var qv = new DataView(dd.data.buffer, dd.data.byteOffset, L), out = new Float32Array(cnt * 3);
         for (var i3 = 0; i3 < cnt; i3++) for (var ax = 0; ax < 3; ax++) {
@@ -501,7 +526,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
           out[i3 * 3 + ax] = lo[ax] + (hi[ax] - lo[ax]) * (sv + 32767) / 65534;
         }
         var sc = score(out);
-        if (sc >= 0.6) res = { pts: out, score: sc + 0.5, cnt: cnt };
+        if (sc >= 0.6) res = { pts: out, score: sc + 0.5 + (own ? 0.3 : 0), cnt: cnt };
         else why.form = (why.form || 0) + 1;
       });
       return res;
@@ -862,6 +887,12 @@ $('optOut').onchange=async function(){
 
 if(mk) mk.version().then(function(v){ $('ver').textContent='Version '+v; }); else $('ver').textContent='Browser';
 
+// ---------- Fehlertexte ----------
+function clean(e){
+  var m=String(e && e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/,'');
+  if (e instanceof RangeError || e instanceof TypeError) m='Datei beschädigt oder unbekannter Aufbau ('+m+')';
+  return m;
+}
 // ---------- Statuszeile ----------
 function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); }
 function showErr(msg){
@@ -910,7 +941,7 @@ async function load(f){
     f.lodPick = null;
     f.status='wait'; f.err='';
     await loadTextures(f);
-  } catch(e){ f.model=null; f.status='err'; f.err=e.message; }
+  } catch(e){ f.model=null; f.status='err'; f.err=clean(e); }
   render();
 }
 
@@ -938,7 +969,7 @@ async function loadTextures(f){
         if (!en) { f.tex[t]={missing:true}; continue; }
         var img = MK.decodePAA(await readEntry(en));
         f.tex[t] = img;
-      } catch(e){ f.tex[t]={error:e.message}; }
+      } catch(e){ f.tex[t]={error:clean(e)}; }
     }
   }
 }
@@ -997,7 +1028,7 @@ async function convert(f){
       log('✓ '+f.name+' als ZIP heruntergeladen', 'ok');
     }
     f.status='ok'; f.err='';
-  } catch(e){ f.status='err'; f.err=e.message; log('✗ '+f.name+': '+e.message, 'err'); }
+  } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err, 'err'); }
   render(); if (f===selected) showErr(f.err);
 }
 
