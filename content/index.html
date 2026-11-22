@@ -164,7 +164,7 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
     <div class="colhead">Einstellungen</div>
     <div class="set">
       <h3>Automatik</h3>
-      <label class="chk"><input type="checkbox" id="optAuto" checked><span>Sofort umwandeln<small>Dateien werden direkt nach dem Reinziehen gespeichert</small></span></label>
+      <label class="chk"><input type="checkbox" id="optAuto"><span>Sofort umwandeln<small>Dateien werden direkt nach dem Reinziehen gespeichert</small></span></label>
       <div class="row" id="watchRow">
         <div style="display:flex;align-items:center;gap:8px"><button class="toggle" id="watchTgl"></button><span>Ordner überwachen</span></div>
         <div class="path" id="watchPath">Neue oder geänderte P3D-Dateien im gewählten Ordner werden automatisch umgewandelt.</div>
@@ -1176,8 +1176,10 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { split:true, closed:{}, theme:'hacker', auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
-try { Object.assign(S, JSON.parse(localStorage.getItem('mk-settings') || '{}')); } catch(e){}
+var S = { v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
+Object.assign(S, saved);
+if (!(saved.v>=3)){ S.auto=false; S.v=3; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function save(){ try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function applyUI(){
   $('optAuto').checked=S.auto; $('optOut').value=S.out; $('optLod').value=S.lod; $('optMtl').checked=S.mtl;
@@ -1583,10 +1585,10 @@ $('texIn').onchange=async function(){
 // ---------- Texturen-Sammlung, automatische Suche, Textur-Browser ----------
 var lib=[], libKeys={};
 function isTexName(n){ return /\.(paa|pac|png|jpe?g|bmp|webp)$/i.test(n); }
-function libAdd(en){
+function libAdd(en, user){
   var k=(en.path||('datei:'+en.name+':'+(en.file?en.file.size:''))).toLowerCase();
-  if (libKeys[k]) return libKeys[k];
-  var it={ name:en.name, en:en, thumb:null, img:null }; libKeys[k]=it; lib.push(it); return it;
+  if (libKeys[k]){ if (user) libKeys[k].user=true; return libKeys[k]; }
+  var it={ name:en.name, en:en, thumb:null, img:null, user:!!user }; libKeys[k]=it; lib.push(it); return it;
 }
 async function libFor(f){
   if (mk && f && f.path && mk.listTextures && !f.libDone){
@@ -1594,7 +1596,7 @@ async function libFor(f){
     try { var ps=await mk.listTextures(f.path, 2); ps.forEach(function(p){ libAdd({ name:p.split(/[\\\/]/).pop(), path:p }); }); hx('scan textures · '+ps.length+' found'); }
     catch(e){ hx('scan textures failed','w'); }
   }
-  Object.keys(paaPool).forEach(function(k){ if (isTexName(k)) libAdd(paaPool[k]); });
+  Object.keys(paaPool).forEach(function(k){ if (isTexName(k)) libAdd(paaPool[k], true); });
   return lib;
 }
 async function libImg(it){
@@ -1640,7 +1642,7 @@ async function openTB(f, m){
   viewer.highlight(m.key,true);
   $('tbStrip').innerHTML='<div class="tbempty">Texturen werden gesucht …</div>';
   await libFor(f);
-  tb.list=ranked(f,m,lib);
+  tb.list=ranked(f,m,lib.filter(function(it){ return it.user; }));
   fillTB();
 }
 function fillTB(){
@@ -1649,7 +1651,7 @@ function fillTB(){
   var cur=tb.f.override && tb.f.override[tb.m.key];
   tb.idx=-1;
   if (!tb.shown.length){
-    S2.innerHTML='<div class="tbempty">'+(lib.length?'Keine Treffer.':'Keine Texturen gefunden. Klick auf <b>📁 Ordner</b>, um einen Ordner mit Texturen hinzuzufügen (z. B. deinen Mod-Ordner), oder zieh PAA/PNG-Dateien ins Fenster.')+'</div>';
+    S2.innerHTML='<div class="tbempty">'+(tb.list.length?'Keine Treffer.':'Noch keine Texturen. Zieh PAA- oder PNG-Dateien ins Fenster oder füge mit <b>📁 Ordner</b> einen Texturordner hinzu.')+'</div>';
     updTBCount(); return;
   }
   var tok=++tb.token;
@@ -1704,9 +1706,9 @@ $('tbCancel').onclick=function(){ closeTB(false); };
 $('tbSearch').oninput=fillTB;
 $('tbFolder').onclick=function(){ $('tbDir').click(); };
 $('tbDir').onchange=function(){
-  var n=0; Array.from(this.files).forEach(function(file){ if (!isTexName(file.name)) return; n++; var p=mk && mk.pathForFile ? mk.pathForFile(file) : ''; libAdd(p ? { name:file.name, path:p } : { name:file.name, file:file }); });
+  var n=0; Array.from(this.files).forEach(function(file){ if (!isTexName(file.name)) return; n++; var p=mk && mk.pathForFile ? mk.pathForFile(file) : ''; libAdd(p ? { name:file.name, path:p } : { name:file.name, file:file }, true); });
   this.value=''; hx('library +'+n+' textures'); log(n+' Texturen hinzugefügt','ok');
-  if (tb.open){ tb.list=ranked(tb.f,tb.m,lib); fillTB(); }
+  if (tb.open){ tb.list=ranked(tb.f,tb.m,lib.filter(function(it){ return it.user; })); fillTB(); }
 };
 window.addEventListener('keydown',function(e){
   if (!tb.open) return;
@@ -1803,7 +1805,7 @@ document.addEventListener('drop',async function(e){
     try {
       var img, name;
       if (listId){ var src=files.length?null:window.__mkFiles().find(function(x){ return x.id===listId; }); if (!src || !src.img) return; img=src.img; name=src.name; }
-      else { var en=fileEntry(files[0]); libAdd(en); name=files[0].name; img=/\.pa[ac]$/i.test(name) ? MK.decodePAA(await readEntry(en)) : await decodeImageBytes(await readEntry(en)); }
+      else { var en=fileEntry(files[0]); libAdd(en, true); name=files[0].name; img=/\.pa[ac]$/i.test(name) ? MK.decodePAA(await readEntry(en)) : await decodeImageBytes(await readEntry(en)); }
       var f=selected; f.override=f.override||{}; f.override[key]={ img:img, name:name };
       hx('drop '+name+' → '+key);
       if (tb.open && tb.f===f && tb.m.key===key){ tb.prev=f.override[key]; }
