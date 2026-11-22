@@ -213,10 +213,13 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       <div class="path" id="bridgePath">Mit dem Add-on landen Modelle per „An Blender“ direkt mit Texturen in Blender.</div>
       <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
 
-      <h3>KI-Texturen</h3>
-      <div class="row"><label class="t">Gemini-API-Schlüssel</label><input type="password" id="aiKey" placeholder="AIza…" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none"></div>
-      <div class="path">Kostenlos erstellen unter aistudio.google.com/apikey · bleibt nur auf deinem PC gespeichert</div>
-      <div class="row" style="margin-top:8px"><label class="t">Modell</label><select id="aiModel"><option value="gemini-3.1-flash-image">Nano Banana 2 (empfohlen)</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite (schnell, günstig)</option><option value="gemini-3-pro-image">Nano Banana Pro (beste Qualität)</option></select></div>
+      <h3>Texturen erstellen</h3>
+      <div class="row"><label class="t">Quelle</label><select id="aiSource"><option value="builtin">Eingebaut – gratis, offline, unbegrenzt</option><option value="polli">Online-KI – gratis, ohne Konto (1 Bild / 15 s)</option><option value="gemini">Gemini – eigener Schlüssel (kostenpflichtig)</option></select></div>
+      <div class="path" id="aiSrcHint"></div>
+      <div id="gemBox" style="display:none">
+        <div class="row" style="margin-top:8px"><label class="t">Gemini-API-Schlüssel</label><input type="password" id="aiKey" placeholder="AIza…" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none"></div>
+        <div class="row"><label class="t">Modell</label><select id="aiModel"><option value="gemini-3.1-flash-image">Nano Banana 2</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite</option><option value="gemini-3-pro-image">Nano Banana Pro</option></select></div>
+      </div>
 
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
@@ -249,11 +252,11 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 </div></div>
 <div id="aiDlg"><div class="hbox guide" style="width:560px">
 <h2>✨ Textur erstellen für <span id="aiMat"></span></h2>
-<p class="lead">Beschreib kurz, wie das Teil aussehen soll – z. B. „abgenutztes schwarzes Metall mit Kratzern“, „Multicam-Tarnstoff“, „altes Leder braun“.</p>
+<p class="lead"><span id="aiSrcLine" style="color:var(--green)"></span><br>Beschreib kurz, wie das Teil aussehen soll – z. B. „abgenutztes schwarzes Metall mit Kratzern“, „Multicam-Tarnstoff“, „altes Leder braun“.</p>
 <textarea id="aiPrompt" rows="3" placeholder="Was soll drauf?" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px;outline:none;resize:vertical"></textarea>
 <div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0">
   <label class="chk"><input type="checkbox" id="aiSeamless" checked><span>Nahtlos kachelbar<small>Für Stoff, Metall, Holz – wiederholt sich ohne Kanten</small></span></label>
-  <label class="chk"><input type="checkbox" id="aiUV"><span>UV-Layout als Vorlage<small>Die KI bekommt die Form der Teile mit – für Logos/Details an bestimmten Stellen</small></span></label>
+  <label class="chk" id="aiUVRow"><input type="checkbox" id="aiUV"><span>UV-Layout als Vorlage<small>Die KI bekommt die Form der Teile mit – für Logos/Details an bestimmten Stellen</small></span></label>
   <label class="chk"><input type="checkbox" id="ai2k"><span>2K statt 1K<small>Schärfer, dauert länger</small></span></label>
 </div>
 <div id="aiOut" style="display:none;gap:12px;align-items:flex-start;margin:6px 0">
@@ -1247,6 +1250,190 @@ body.noxmas .snowcap::before{display:none}
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* Melonenkonverter – eingebauter Textur-Generator (offline, kostenlos, unbegrenzt) */
+(function (root) {
+  'use strict';
+  // ---------- kachelbares Rauschen ----------
+  function rng(seed) { var s = seed >>> 0 || 1; return function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+  function makeNoise(seed) {
+    var R = rng(seed), perm = new Uint8Array(512), g = new Float32Array(256);
+    for (var i = 0; i < 256; i++) { perm[i] = i; g[i] = R() * 2 - 1; }
+    for (i = 255; i > 0; i--) { var j = (R() * (i + 1)) | 0, t = perm[i]; perm[i] = perm[j]; perm[j] = t; }
+    for (i = 0; i < 256; i++) perm[i + 256] = perm[i];
+    function fade(t) { return t * t * (3 - 2 * t); }
+    // Wertrauschen mit Periode p (für nahtlose Kacheln)
+    function v(x, y, p, q) {
+      q = q || p;
+      var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+      var x0 = ((xi % p) + p) % p, y0 = ((yi % q) + q) % q, x1 = (x0 + 1) % p & 255, y1 = (y0 + 1) % q & 255; x0 &= 255; y0 &= 255;
+      var a = g[perm[perm[x0] + y0]], b = g[perm[perm[x1] + y0]], c = g[perm[perm[x0] + y1]], d = g[perm[perm[x1] + y1]];
+      var u = fade(xf), w = fade(yf);
+      return a + (b - a) * u + (c - a) * w + (a - b - c + d) * u * w;
+    }
+    function fbm(x, y, base, oct) {
+      var s = 0, amp = 0.5, f = 1, n = 0;
+      for (var o = 0; o < (oct || 5); o++) { s += v(x * base * f, y * base * f, base * f) * amp; n += amp; amp *= 0.5; f *= 2; }
+      return s / n; // ca. -1..1
+    }
+    // Zellen (Leder, Flecken)
+    function cells(x, y, n) {
+      var px = x * n, py = y * n, xi = Math.floor(px), yi = Math.floor(py), d1 = 9, d2 = 9;
+      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
+        var cx = xi + dx, cy = yi + dy, wx = ((cx % n) + n) % n, wy = ((cy % n) + n) % n, h = perm[perm[wx & 255] + (wy & 255)];
+        var fx = cx + (perm[h] / 255), fy = cy + (perm[(h + 77) & 511] / 255), dd = Math.hypot(px - fx, py - fy);
+        if (dd < d1) { d2 = d1; d1 = dd; } else if (dd < d2) d2 = dd;
+      }
+      return [d1, d2];
+    }
+    // gebürstet: lang gezogene Streifen, trotzdem nahtlos
+    function brushed(x, y, lines) {
+      var s = 0, amp = 0.5, n = 0;
+      for (var o = 0; o < 3; o++) { var px = 4 << o, py = (lines << o); s += v(x * px, y * py, px, py) * amp; n += amp; amp *= 0.5; }
+      return s / n;
+    }
+    return { v: v, fbm: fbm, cells: cells, brushed: brushed, rand: R };
+  }
+
+  // ---------- Prompt verstehen ----------
+  var COLORS = {
+    schwarz: [22, 22, 24], black: [22, 22, 24], weiss: [225, 225, 220], weiß: [225, 225, 220], white: [225, 225, 220],
+    grau: [110, 112, 114], grey: [110, 112, 114], gray: [110, 112, 114], rot: [150, 30, 28], red: [150, 30, 28],
+    grün: [52, 92, 46], gruen: [52, 92, 46], green: [52, 92, 46], oliv: [86, 88, 54], olive: [86, 88, 54], od: [78, 82, 52],
+    braun: [96, 64, 40], brown: [96, 64, 40], sand: [190, 168, 128], tan: [178, 150, 108], coyote: [140, 112, 78], fde: [160, 135, 100],
+    khaki: [150, 140, 100], beige: [200, 185, 150], blau: [36, 60, 120], blue: [36, 60, 120], navy: [24, 32, 64],
+    gelb: [200, 170, 40], yellow: [200, 170, 40], orange: [200, 100, 30], lila: [90, 50, 120], pink: [210, 110, 150],
+    silber: [170, 172, 176], silver: [170, 172, 176], gold: [190, 150, 60], kupfer: [170, 100, 60], messing: [175, 145, 75]
+  };
+  var MATS = [
+    ['woodland', /woodland/], ['multicam', /multicam|multi cam/], ['flecktarn', /flecktarn|fleck/], ['digital', /digital|marpat|pixel/],
+    ['camo', /tarn|camo|camouflage/], ['carbon', /carbon|kohlefaser/], ['rust', /rost|rust/], ['wood', /holz|wood/],
+    ['leather', /leder|leather/], ['fabric', /stoff|fabric|textil|cloth|baumwolle|nylon|cordura|schal|maske|weste|uniform|tuch/],
+    ['concrete', /beton|concrete|stein|stone|putz/], ['rubber', /gummi|rubber/], ['plastic', /plastik|kunststoff|plastic|polymer/],
+    ['metal', /metall|metal|stahl|steel|eisen|alu|chrom|lauf|waffe|gun/]
+  ];
+  function parse(prompt) {
+    var p = String(prompt || '').toLowerCase(), mat = 'fabric', cols = [];
+    for (var i = 0; i < MATS.length; i++) if (MATS[i][1].test(p)) { mat = MATS[i][0]; break; }
+    Object.keys(COLORS).forEach(function (k) { var at = p.search(new RegExp('(^|[^a-zäöü])' + k)); if (at >= 0) cols.push([at, COLORS[k]]); });
+    cols.sort(function (a, b) { return a[0] - b[0]; });
+    var dark = /dunkel|dark/.test(p), light = /hell|light/.test(p);
+    cols = cols.map(function (c) { var k = dark ? 0.6 : light ? 1.35 : 1; return c[1].map(function (x) { return Math.min(255, x * k); }); });
+    var hash = 0; for (i = 0; i < p.length; i++) hash = (hash * 31 + p.charCodeAt(i)) >>> 0;
+    return {
+      mat: mat, cols: cols,
+      wear: /abgenutzt|abgerieben|alt|worn|used|benutzt|verbraucht|dreckig|schmutz|dirty|staub/.test(p) ? 1 : 0,
+      scratches: /kratzer|scratch|zerkratzt/.test(p) ? 1 : 0,
+      dirty: /dreckig|schmutz|dirty|staub|matsch|schlamm/.test(p) ? 1 : 0,
+      shiny: /glänz|glanz|poliert|shiny|chrom/.test(p) ? 1 : 0,
+      fine: /fein|fine|klein/.test(p) ? 1 : 0, coarse: /grob|coarse|groß/.test(p) ? 1 : 0,
+      seed: hash
+    };
+  }
+
+  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+  function shade(c, k) { return [c[0] * k, c[1] * k, c[2] * k]; }
+  function clamp(x) { return x < 0 ? 0 : x > 255 ? 255 : x; }
+
+  // ---------- Erzeugen ----------
+  function generate(prompt, size, variant) {
+    size = size || 1024;
+    var P = parse(prompt), N = makeNoise((P.seed + (variant || 0) * 7919) >>> 0), out = new Uint8Array(size * size * 4);
+    var c = P.cols, scale = P.fine ? 2 : P.coarse ? 0.5 : 1;
+    function col(i, def) { return c[i] || def; }
+    var camoSets = {
+      woodland: [[62, 74, 42], [96, 82, 52], [30, 32, 24], [118, 118, 76]],
+      multicam: [[150, 132, 98], [110, 104, 72], [86, 92, 58], [128, 98, 66], [60, 54, 40]],
+      flecktarn: [[96, 100, 70], [62, 80, 48], [40, 50, 34], [96, 72, 50], [20, 22, 18]],
+      digital: [[110, 116, 90], [84, 92, 64], [60, 66, 46], [150, 140, 108]],
+      camo: [[86, 92, 58], [110, 96, 66], [44, 48, 34], [140, 128, 92]]
+    };
+    var pal = camoSets[P.mat] || null;
+    if (pal && c.length >= 2) pal = c.concat(pal).slice(0, Math.max(3, c.length));
+    for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) {
+      var u = x / size, w = y / size, rgb, n1, n2;
+      switch (P.mat) {
+        case 'woodland': case 'camo': case 'multicam': {
+          var lv = [N.fbm(u, w, 3 * scale, 4), N.fbm(u + 0.37, w + 0.11, 4 * scale, 4), N.fbm(u + 0.71, w + 0.53, 5 * scale, 4)];
+          rgb = pal[0];
+          if (lv[0] > 0.05) rgb = pal[1]; if (lv[1] > 0.12) rgb = pal[2]; if (lv[2] > 0.18) rgb = pal[3 % pal.length];
+          if (P.mat === 'multicam' && N.fbm(u + 0.2, w + 0.9, 9 * scale, 3) > 0.32) rgb = pal[4 % pal.length];
+          rgb = shade(rgb, 0.92 + N.fbm(u, w, 64, 3) * 0.12);
+          break;
+        }
+        case 'flecktarn': {
+          rgb = pal[0];
+          for (var k = 1; k < pal.length; k++) { var cc = N.cells(u + k * 0.13, w + k * 0.29, Math.round((10 + k * 4) * scale)); if (cc[0] < 0.28 + N.fbm(u, w, 20, 2) * 0.12) rgb = pal[k]; }
+          rgb = shade(rgb, 0.93 + N.fbm(u, w, 64, 3) * 0.1);
+          break;
+        }
+        case 'digital': {
+          var q = Math.max(8, Math.round(96 * scale)), qu = Math.floor(u * q) / q, qw = Math.floor(w * q) / q;
+          var d1 = N.fbm(qu, qw, 3, 4), d2 = N.fbm(qu + 0.5, qw + 0.3, 5, 3);
+          rgb = d1 > 0.12 ? pal[2] : d1 > -0.05 ? pal[1] : pal[0]; if (d2 > 0.25) rgb = pal[3 % pal.length];
+          break;
+        }
+        case 'wood': {
+          var base = col(0, [120, 80, 48]), dk = shade(base, 0.62);
+          n1 = N.fbm(u, w, 3, 4); var ring = Math.abs(Math.sin((u * 18 * scale + n1 * 2.2) * Math.PI));
+          n2 = N.fbm(u * 0.2, w, 48, 3);
+          rgb = mix(base, dk, Math.pow(ring, 3) * 0.7 + n2 * 0.15 + 0.1);
+          break;
+        }
+        case 'leather': {
+          var lb = col(0, [86, 56, 36]), cl = N.cells(u, w, Math.round(64 * scale));
+          n1 = N.fbm(u, w, 6, 4);
+          rgb = shade(lb, 0.78 + (cl[1] - cl[0]) * 0.35 + n1 * 0.12);
+          break;
+        }
+        case 'carbon': {
+          var cb = col(0, [44, 44, 48]), t = Math.round(48 * scale), cx = Math.floor(u * t), cy = Math.floor(w * t);
+          var along = ((cx + cy) & 1) ? (u * t % 1) : (w * t % 1), weave = 0.65 + 0.45 * Math.sin(along * Math.PI);
+          rgb = shade(cb, weave * (0.9 + N.fbm(u, w, 32, 2) * 0.1));
+          break;
+        }
+        case 'rust': {
+          var mbase = col(1, [96, 94, 92]), rc = col(0, [120, 56, 26]);
+          n1 = N.fbm(u, w, 4 * scale, 6); n2 = N.fbm(u + 0.3, w, 24, 4);
+          var r = Math.max(0, Math.min(1, (n1 + 0.15) * 2.4));
+          rgb = mix(shade(mbase, 0.9 + n2 * 0.15), shade(rc, 0.75 + n2 * 0.4), r);
+          break;
+        }
+        case 'concrete': {
+          var cbs = col(0, [128, 126, 120]); n1 = N.fbm(u, w, 6 * scale, 6); n2 = N.fbm(u, w, 64, 2);
+          rgb = shade(cbs, 0.85 + n1 * 0.2 + n2 * 0.08); if (N.cells(u, w, 40)[0] < 0.06) rgb = shade(rgb, 0.7);
+          break;
+        }
+        case 'rubber': case 'plastic': {
+          var pb = col(0, P.mat === 'rubber' ? [30, 30, 30] : [40, 42, 44]); n1 = N.fbm(u, w, 48, 3);
+          rgb = shade(pb, 0.95 + n1 * (P.mat === 'rubber' ? 0.12 : 0.06));
+          break;
+        }
+        case 'metal': {
+          var mb = col(0, [58, 60, 62]); n1 = N.brushed(u, w, Math.round(128 * scale)); n2 = N.fbm(u, w, 6, 4);
+          rgb = shade(mb, 0.9 + n1 * (P.shiny ? 0.25 : 0.14) + n2 * 0.08);
+          break;
+        }
+        default: { // Stoff
+          var fb = col(0, [70, 74, 60]), tw = Math.round(160 * scale);
+          var wx2 = Math.sin(u * tw * Math.PI * 2), wy2 = Math.sin(w * tw * Math.PI * 2), weave2 = (((Math.floor(u * tw) + Math.floor(w * tw)) & 1) ? wx2 : wy2);
+          n1 = N.fbm(u, w, 8, 5); n2 = N.fbm(u, w, 96, 2);
+          rgb = shade(fb, 0.88 + weave2 * 0.07 + n1 * 0.1 + n2 * 0.05);
+          if (c[1]) rgb = mix(rgb, c[1], Math.max(0, N.fbm(u + 0.4, w + 0.2, 3, 4)) * 1.2);
+        }
+      }
+      // Abnutzung, Kratzer, Schmutz
+      if (P.wear) { var e = N.fbm(u + 0.6, w + 0.6, 5, 5), met = P.mat === 'metal' || P.mat === 'rust', th = met ? 0.26 : 0.18; if (e > th) rgb = mix(rgb, met ? [120, 120, 118] : shade(rgb, 1.25), Math.min(met ? 0.55 : 1, (e - th) * 3)); }
+      if (P.scratches) { var sc = Math.abs(N.v(u * 6 + N.v(u * 3, w * 3, 3) * 0.8, w * 64, 6, 64)); if (sc < 0.012) rgb = mix(rgb, [170, 170, 168], 0.6); }
+      if (P.dirty) { var dd = N.fbm(u + 0.15, w + 0.85, 3, 5); if (dd > 0.05) rgb = mix(rgb, [70, 58, 42], Math.min(0.55, (dd - 0.05) * 1.6)); }
+      var o = (y * size + x) * 4;
+      out[o] = clamp(rgb[0]); out[o + 1] = clamp(rgb[1]); out[o + 2] = clamp(rgb[2]); out[o + 3] = 255;
+    }
+    return { width: size, height: size, rgba: out, hasAlpha: false, format: 'Generiert', info: P };
+  }
+
+  root.TexGen = { generate: generate, parse: parse };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 </script>
 <script>
 (function(){
@@ -1256,7 +1443,7 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { aiModel:'gemini-3.1-flash-image', aiKey:'', v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var S = { aiSource:'builtin', aiModel:'gemini-3.1-flash-image', aiKey:'', v:3, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
 var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
 Object.assign(S, saved);
 if (!(saved.v>=3)){ S.auto=false; S.v=3; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
@@ -1938,7 +2125,13 @@ window.addEventListener('keydown',function(e){
 $('tbStrip').addEventListener('wheel',function(e){ if (Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); this.scrollLeft+=e.deltaY; } },{passive:false});
 
 // ---------- KI-Texturen (Gemini) ----------
-$('aiKey').value=S.aiKey||''; $('aiModel').value=S.aiModel;
+$('aiKey').value=S.aiKey||''; $('aiModel').value=S.aiModel; $('aiSource').value=S.aiSource;
+var SRC_TXT={ builtin:'Eingebauter Generator: gratis, offline, unbegrenzt. Kann Stoff, Tarnmuster (Woodland, Multicam, Flecktarn, Digital), Metall, Holz, Leder, Rost, Carbon, Beton, Gummi, Plastik + Farben und „abgenutzt“, „Kratzer“, „dreckig“.',
+  polli:'Online-KI von Pollinations: gratis und ohne Konto, aber höchstens 1 Bild alle 15 Sekunden und abhängig davon, dass der Dienst online ist.',
+  gemini:'Googles Gemini-Bild-KI: beste Ergebnisse, braucht aber einen eigenen Schlüssel und kostet je nach Konto Geld.' };
+function srcUI(){ $('gemBox').style.display=S.aiSource==='gemini'?'block':'none'; $('aiSrcHint').textContent=SRC_TXT[S.aiSource]; }
+srcUI();
+$('aiSource').onchange=function(){ S.aiSource=this.value; save(); srcUI(); };
 $('aiKey').onchange=function(){ S.aiKey=this.value.trim(); save(); };
 $('aiModel').onchange=function(){ S.aiModel=this.value; save(); };
 var ai={ f:null, m:null, busy:false, n:0 };
@@ -1947,7 +2140,9 @@ function openAI(f, m){
   $('aiMat').textContent=m.name; $('aiMsg').textContent=''; $('aiOut').style.display='none';
   $('aiPrompt').value = (f.aiPrompts && f.aiPrompts[m.key]) || '';
   $('aiDlg').classList.add('on'); setTimeout(function(){ $('aiPrompt').focus(); }, 50);
-  if (!S.aiKey) $('aiMsg').innerHTML='<span style="color:var(--yellow)">Trag zuerst rechts unter <b>KI-Texturen</b> deinen Gemini-API-Schlüssel ein.</span>';
+  $('aiSrcLine').textContent={ builtin:'Eingebauter Generator · gratis · unbegrenzt', polli:'Online-KI · gratis · 1 Bild alle 15 Sekunden', gemini:'Gemini · eigener Schlüssel' }[S.aiSource];
+  $('aiUVRow').style.display = S.aiSource==='gemini' ? '' : 'none';
+  if (S.aiSource==='gemini' && !S.aiKey) $('aiMsg').innerHTML='<span style="color:var(--yellow)">Trag zuerst rechts unter <b>Texturen erstellen</b> deinen Gemini-API-Schlüssel ein – oder stell die Quelle auf „Eingebaut“.</span>';
 }
 $('aiClose').onclick=function(){ $('aiDlg').classList.remove('on'); };
 $('aiPrompt').onkeydown=function(e){ if (e.key==='Enter' && (e.ctrlKey||!e.shiftKey)){ e.preventDefault(); $('aiGo').click(); } };
@@ -1962,65 +2157,92 @@ function uvLayout(f, key, size){
   g.stroke();
   return c.toDataURL('image/png').split(',')[1];
 }
-$('aiGo').onclick=async function(){
-  if (ai.busy || !ai.f) return;
-  var prompt=$('aiPrompt').value.trim(), msg=$('aiMsg');
-  if (!S.aiKey){ msg.innerHTML='<span style="color:var(--yellow)">Kein API-Schlüssel eingetragen (rechts unter KI-Texturen).</span>'; return; }
-  if (!prompt){ msg.textContent='Bitte kurz beschreiben, was drauf soll.'; return; }
-  ai.f.aiPrompts=ai.f.aiPrompts||{}; ai.f.aiPrompts[ai.m.key]=prompt;
-  var seamless=$('aiSeamless').checked, useUV=$('aiUV').checked;
-  var full='Create a texture map image (albedo / base color only) for a 3D game model. '+
+function b64ToU8(b64){ var bin=atob(b64), u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
+function texPromptEN(prompt, seamless, useUV){
+  return 'Create a texture map image (albedo / base color only) for a 3D game model. '+
     'Flat, top-down, evenly lit, no perspective, no shadows, no lighting, no reflections, no visible objects, no text, no watermark, no border or frame. '+
     'The material must fill the whole square image edge to edge. '+
     (seamless?'The texture must tile seamlessly: the left edge must continue on the right edge and the top on the bottom. ':'')+
     (useUV?'The attached black image with white lines is the UV layout of this model part. Paint the texture so it fits inside these UV areas, but do NOT draw the white lines themselves and keep the background filled with the material. ':'')+
     'Description of the material (may be German): '+prompt;
-  var parts=[{ text: full }];
+}
+async function genBuiltin(prompt, size){
+  await new Promise(function(r){ setTimeout(r, 30); });
+  var img=TexGen.generate(prompt, size, ai.n);
+  var c=document.createElement('canvas'); c.width=img.width; c.height=img.height; var d=c.getContext('2d').createImageData(img.width,img.height); d.data.set(img.rgba); c.getContext('2d').putImageData(d,0,0);
+  return { img:img, url:c.toDataURL('image/png'), mime:'image/png', u8:await rgbaToPng(img) };
+}
+var polliNext=0;
+async function genPolli(prompt, size, seamless){
+  var wait=polliNext-Date.now();
+  if (wait>0) throw new Error('Die kostenlose Online-KI erlaubt 1 Bild alle 15 Sekunden – noch '+Math.ceil(wait/1000)+' s warten.');
+  polliNext=Date.now()+15500;
+  var p='seamless tileable texture, flat top-down albedo map, evenly lit, no shadows, no objects, no text, fills whole image: '+prompt+(seamless?', seamless pattern':'');
+  var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(p)+'?width='+size+'&height='+size+'&nologo=true&model=flux&seed='+((Math.random()*1e9)|0);
+  var u8, mime='image/jpeg';
+  if (mk && mk.httpGetImage){ var r=await mk.httpGetImage(url); if (!r.ok) throw new Error('Online-KI antwortet mit Fehler '+r.status+' – später nochmal versuchen.'); u8=b64ToU8(r.data); mime=r.type||mime; }
+  else {
+    var res; try { res=await fetch(url); } catch(x){ throw new Error('Keine Verbindung zur Online-KI. Internet prüfen oder Quelle „Eingebaut“ nehmen.'); }
+    if (!res.ok) throw new Error(res.status===429?'Zu viele Anfragen – kurz warten.':'Online-KI antwortet mit Fehler '+res.status+' – später nochmal versuchen.');
+    u8=new Uint8Array(await res.arrayBuffer()); mime=res.headers.get('content-type')||mime;
+  }
+  if (!/^image\//.test(mime)) throw new Error('Die Online-KI hat kein Bild geliefert. Später nochmal versuchen.');
+  var img=await decodeImageBytes(u8);
+  var b64=''; for (var i=0;i<u8.length;i+=32768) b64+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));
+  return { img:img, url:'data:'+mime+';base64,'+btoa(b64), mime:mime, u8:u8 };
+}
+async function genGemini(prompt, seamless, useUV){
+  if (!S.aiKey) throw new Error('Kein Gemini-Schlüssel eingetragen (rechts unter Texturen erstellen).');
+  var parts=[{ text: texPromptEN(prompt, seamless, useUV) }];
   if (useUV) parts.push({ inline_data:{ mime_type:'image/png', data: uvLayout(ai.f, ai.m.key, 1024) } });
   var cfg={ responseModalities:['IMAGE'], imageConfig:{ aspectRatio:'1:1' } };
   if ($('ai2k').checked) cfg.imageConfig.imageSize='2K';
+  var url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.aiModel)+':generateContent';
+  var payload=JSON.stringify({ contents:[{ role:'user', parts:parts }], generationConfig: cfg }), res, j=null;
+  if (mk && mk.aiRequest){ var rr=await mk.aiRequest(url, S.aiKey, payload); res={ ok:rr.ok, status:rr.status }; j=rr.json; }
+  else {
+    try { res=await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': S.aiKey }, body: payload }); }
+    catch(x){ throw new Error('Keine Verbindung zu Google. Internet prüfen.'); }
+    try { j=await res.json(); } catch(x){}
+  }
+  if (!res.ok){
+    var em=(j && j.error && j.error.message) || ('Fehler '+res.status);
+    if (res.status===400 && /API key/i.test(em)) em='Der API-Schlüssel ist ungültig.';
+    else if (res.status===403) em='Der Schlüssel hat keinen Zugriff auf dieses Modell.';
+    else if (res.status===429) em='Gemini-Limit erreicht (Bilder sind bei Google meist kostenpflichtig). Stell rechts die Quelle auf „Eingebaut“ oder „Online-KI“ – beide sind gratis.';
+    else if (res.status===404) em='Modell nicht gefunden – wähle rechts ein anderes Modell.';
+    throw new Error(em);
+  }
+  var cand=j && j.candidates && j.candidates[0], ps=(cand && cand.content && cand.content.parts)||[], imgPart=null, txt='';
+  ps.forEach(function(p){ var d=p.inlineData||p.inline_data; if (d && d.data && !imgPart) imgPart=d; else if (p.text) txt+=p.text; });
+  if (!imgPart){ var why=(cand && cand.finishReason) || (j && j.promptFeedback && j.promptFeedback.blockReason) || ''; throw new Error('Die KI hat kein Bild geliefert'+(why?' ('+why+')':'')+(txt?': '+txt.slice(0,160):'')+'.'); }
+  var mime=imgPart.mimeType||imgPart.mime_type||'image/png', u8=b64ToU8(imgPart.data);
+  return { img:await decodeImageBytes(u8), url:'data:'+mime+';base64,'+imgPart.data, mime:mime, u8:u8 };
+}
+$('aiGo').onclick=async function(){
+  if (ai.busy || !ai.f) return;
+  var prompt=$('aiPrompt').value.trim(), msg=$('aiMsg');
+  if (!prompt){ msg.style.color=''; msg.textContent='Bitte kurz beschreiben, was drauf soll.'; return; }
+  ai.f.aiPrompts=ai.f.aiPrompts||{}; ai.f.aiPrompts[ai.m.key]=prompt;
+  var seamless=$('aiSeamless').checked, size=$('ai2k').checked?2048:1024, src=S.aiSource;
   ai.busy=true; var btn=this; btn.disabled=true; btn.textContent='Erstellt …';
-  msg.style.color=''; msg.textContent='Die KI malt … (meist 5–20 Sekunden)';
-  hx('ai.request model='+S.aiModel+' prompt="'+prompt.slice(0,60)+'"'); hxBurst(8000);
+  msg.style.color=''; msg.textContent= src==='builtin' ? 'Wird erzeugt …' : 'Die KI malt … (meist 5–30 Sekunden)';
+  hx('texgen source='+src+' prompt="'+prompt.slice(0,60)+'"'); hxBurst(src==='builtin'?2000:8000);
   try {
-    var url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.aiModel)+':generateContent';
-    var payload=JSON.stringify({ contents:[{ role:'user', parts:parts }], generationConfig: cfg }), res, j=null;
-    if (mk && mk.aiRequest){ var rr=await mk.aiRequest(url, S.aiKey, payload); res={ ok:rr.ok, status:rr.status }; j=rr.json; }
-    else {
-      try { res=await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': S.aiKey }, body: payload }); }
-      catch(x){ throw new Error('Keine Verbindung zu Google. Internet prüfen (oder Programm-Update installieren).'); }
-      try { j=await res.json(); } catch(x){}
-    }
-    if (!res.ok){
-      var em=(j && j.error && j.error.message) || ('Fehler '+res.status);
-      if (res.status===400 && /API key/i.test(em)) em='Der API-Schlüssel ist ungültig.';
-      else if (res.status===403) em='Der Schlüssel hat keinen Zugriff auf dieses Modell. ('+em+')';
-      else if (res.status===429) em='Limit erreicht – kurz warten oder bei Google das Kontingent prüfen.';
-      else if (res.status===404) em='Modell nicht gefunden – wähle rechts ein anderes Modell.';
-      throw new Error(em);
-    }
-    var cand=j && j.candidates && j.candidates[0], ps=(cand && cand.content && cand.content.parts)||[], imgPart=null, txt='';
-    ps.forEach(function(p){ var d=p.inlineData||p.inline_data; if (d && d.data && !imgPart) imgPart=d; else if (p.text) txt+=p.text; });
-    if (!imgPart){
-      var why = (cand && cand.finishReason) || (j && j.promptFeedback && j.promptFeedback.blockReason) || '';
-      throw new Error('Die KI hat kein Bild geliefert'+(why?' ('+why+')':'')+(txt?': '+txt.slice(0,160):'')+'. Formuliere den Prompt etwas anders.');
-    }
-    var bin=atob(imgPart.data), u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
-    var img=await decodeImageBytes(u8);
+    var r = src==='builtin' ? await genBuiltin(prompt, size) : src==='polli' ? await genPolli(prompt, size, seamless) : await genGemini(prompt, seamless, $('aiUV').checked);
     ai.n++;
-    var name='ki_'+MK.safeName(ai.m.name)+'_'+ai.n+'.png';
-    var it=libAdd({ name:name, file:new File([u8], name, { type:imgPart.mimeType||imgPart.mime_type||'image/png' }) }, true); it.img=img;
-    ai.f.override=ai.f.override||{}; ai.f.override[ai.m.key]={ img:img, name:name, ai:true };
-    if (ai.f===selected){ refreshView(); }
-    $('aiImg').style.backgroundImage='url(data:'+(imgPart.mimeType||imgPart.mime_type||'image/png')+';base64,'+imgPart.data+')';
-    $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+img.width+' × '+img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Prompt ändern und nochmal <b>Erstellen</b>. Alle Versuche findest du auch im Textur-Browser.';
+    var ext = /jpe?g/.test(r.mime) ? '.jpg' : '.png';
+    var name=(src==='builtin'?'gen_':'ki_')+MK.safeName(ai.m.name)+'_'+ai.n+ext;
+    var it=libAdd({ name:name, file:new File([r.u8], name, { type:r.mime }) }, true); it.img=r.img;
+    ai.f.override=ai.f.override||{}; ai.f.override[ai.m.key]={ img:r.img, name:name, ai:true };
+    if (ai.f===selected) refreshView();
+    $('aiImg').style.backgroundImage='url('+r.url+')';
+    $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+r.img.width+' × '+r.img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Nochmal <b>Erstellen</b> gibt eine neue Variante. Alle Versuche findest du im Textur-Browser.';
     $('aiInfo').querySelector('b').textContent=name;
     $('aiOut').style.display='flex';
     msg.style.color='var(--green)'; msg.textContent='✓ Fertig';
-    hx('ai.response '+name+' '+img.width+'x'+img.height+' ✓');
-  } catch(e){
-    msg.style.color='var(--red)'; msg.textContent=clean(e); hx('ai.error '+clean(e),'e');
-  }
+    hx('texgen '+name+' '+r.img.width+'x'+r.img.height+' ✓');
+  } catch(e){ msg.style.color='var(--red)'; msg.textContent=clean(e); hx('texgen.error '+clean(e),'e'); }
   ai.busy=false; btn.disabled=false; btn.textContent='✨ Erstellen';
 };
 
