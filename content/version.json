@@ -1,5 +1,5 @@
 {
-  "version": "1.0.14",
+  "version": "1.0.15",
   "date": "2026-11-22",
-  "changelog": "🔍 Melonenkonverter 1.0.14\n\n✨ Neu\n• Automatische Textursuche: findet passende Texturen auch bei anderem Namen\n• Textur-Browser: Teil anklicken und mit ← → durch alle Texturen blättern, live auf dem Modell\n• Texturordner hinzufügen und nach Namen filtern"
+  "changelog": "🎯 Melonenkonverter 1.0.15\n\n✨ Neu\n• Texturen per Drag & Drop direkt auf ein Teil des Modells ziehen\n• Das Teil unter der Maus leuchtet beim Ziehen auf\n• Neu hinzugefügte Texturen werden automatisch aufs passende Teil gelegt"
 }
