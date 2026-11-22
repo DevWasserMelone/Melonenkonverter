@@ -70,6 +70,29 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
 .toggle{position:relative;width:32px;height:18px;border-radius:9px;background:#3a4049;border:0;cursor:pointer;flex:none}
 .toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#cfd3d8;transition:.15s}
 .toggle.on{background:var(--green)} .toggle.on::after{left:16px;background:#fff}
+.tools{display:flex;gap:6px;align-items:center;padding:0 12px 8px}
+#search{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 8px;outline:none}
+#search:focus{border-color:var(--green)}
+.selall{display:flex;align-items:center;gap:6px;white-space:nowrap;color:var(--dim);font-size:12px;cursor:pointer}
+.selall input,.item .cb,.grp input{accent-color:var(--green);margin:0;cursor:pointer}
+.grp{display:flex;align-items:center;gap:7px;padding:6px 8px;margin-top:4px;border-radius:6px;cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.grp:hover{background:var(--panel2)}
+.grp .ar{width:10px;display:inline-block;transition:transform .15s}
+.grp.closed .ar{transform:rotate(-90deg)}
+.grp .gc{margin-left:auto;font-size:11px}
+.item{grid-template-columns:16px 10px 1fr auto!important}
+#matPanel{position:absolute;right:10px;top:10px;width:250px;max-height:calc(100% - 50px);display:none;flex-direction:column;background:rgba(10,16,24,.88);border:1px solid var(--line);border-radius:8px;z-index:3;backdrop-filter:blur(4px)}
+.mphead{display:flex;justify-content:space-between;padding:8px 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line)}
+#matList{overflow:auto;padding:4px}
+.mat{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center;padding:6px;border-radius:6px;cursor:default}
+.mat:hover{background:rgba(255,255,255,.05)}
+.mat .sw{width:34px;height:34px;border-radius:5px;border:1px solid var(--line);background-size:cover;background-position:center}
+.mat .mn{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mat .ms{font-size:11px;color:var(--dim);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.mat .ok{color:var(--green)} .mat .no{color:var(--yellow)}
+.mat button{border:1px solid var(--line);background:transparent;color:inherit;border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer}
+.mat button:hover{border-color:var(--green)}
+body.hacker #matPanel{background:rgba(2,10,5,.9)}
 ::-webkit-scrollbar{width:9px} ::-webkit-scrollbar-thumb{background:#2f343b;border-radius:5px}
 </style>
 </head>
@@ -86,10 +109,11 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     <div class="colhead">Dateien <span class="sp"></span><span id="count"></span></div>
     <div id="drop" class="snowcap"><b>P3D- oder PAA-Dateien hier reinziehen</b>oder klicken zum Auswählen</div>
     <input type="file" id="fileIn" accept=".p3d,.paa" multiple hidden>
+    <div class="tools"><input id="search" placeholder="Suchen …" spellcheck="false"><label class="selall"><input type="checkbox" id="selAll">Alle auswählen</label></div>
     <div id="list"><div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div></div>
     <div class="actions">
       <button class="btn" id="clear">Liste leeren</button>
-      <button class="btn main grow snowcap" id="convertAll" disabled>Alle umwandeln</button>
+      <button class="btn main grow snowcap" id="convertAll" disabled>Auswahl umwandeln</button>
     </div>
   </section>
   <section class="col">
@@ -99,6 +123,8 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       <canvas id="img2d" style="position:absolute;inset:0;width:100%;height:100%;display:none"></canvas>
       <div id="viewInfo"></div>
       <div id="viewEmpty">Wähle links eine Datei für die Vorschau</div>
+      <div id="matPanel"><div class="mphead"><span>Materialien</span><span id="matCount"></span></div><div id="matList"></div></div>
+      <input type="file" id="texIn" accept=".paa,.pac,.png,.jpg,.jpeg,.tga,.bmp,.webp" hidden>
       <div id="viewHelp">Linke Maus drehen · Rechte Maus verschieben · Mausrad zoomen · F zentrieren</div>
     </div>
     <div class="viewbar">
@@ -137,6 +163,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
 
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
+      <label class="chk"><input type="checkbox" id="optSplit" checked><span>Pro Textur ein eigenes Objekt<small>In Blender heißt jedes Teil wie seine Textur, z. B. „modell__helm_co“</small></span></label>
       <label class="chk"><input type="checkbox" id="optPaa" checked><span>PAA-Texturen zu PNG umwandeln<small>Sucht die Texturen neben der P3D und in den Ordnern darüber</small></span></label>
 
       <h3>Ausrichtung</h3>
@@ -588,7 +615,7 @@ body.noxmas .snowcap::before{display:none}
     if (!faces) throw new Error('Flächen nicht gefunden');
 
     // Abschnitte (welche Textur für welche Flächen)
-    var faceTex = new Array(faces.length).fill(-1), isProxy = new Array(faces.length).fill(false), secEnd = faceEnd;
+    var faceSec = new Array(faces.length).fill(-1), faceTex = new Array(faces.length).fill(-1), isProxy = new Array(faces.length).fill(false), secEnd = faceEnd;
     try {
       r.p = faceEnd;
       var nSec = r.u32(); if (nSec < 1 || nSec > 100000) throw 0;
@@ -610,7 +637,7 @@ body.noxmas .snowcap::before{display:none}
         var hit = [];
         for (var fi = 0; fi < faces.length; fi++) {
           var pos = byOffset ? faceOffsets[fi] : fi;
-          if (pos >= s[0] && pos < s[1]) { faceTex[fi] = s[2]; hit.push(fi); }
+          if (pos >= s[0] && pos < s[1]) { faceTex[fi] = s[2]; faceSec[fi] = sIdx; hit.push(fi); }
         }
         // Proxy-Platzhalter: eigener Abschnitt mit einem einzelnen Dreieck
         if (proxySecs.indexOf(sIdx) >= 0 && hit.length <= 16 && hit.every(function (fi) { return faces[fi].length === 3; })) hit.forEach(function (fi) { isProxy[fi] = true; });
@@ -713,7 +740,7 @@ body.noxmas .snowcap::before{display:none}
     var outFaces = faces.map(function (vs, fi) {
       if (isProxy[fi]) return null;
       var t = faceTex[fi] >= 0 ? textures[faceTex[fi]] : (textures.length === 1 ? textures[0] : '');
-      return { v: vs.map(function (ix) { return { p: ix, n: -1, u: uv ? uv[ix * 2] : 0, v: uv ? uv[ix * 2 + 1] : 0 }; }), flags: 0, tex: t || '', mat: '' };
+      return { v: vs.map(function (ix) { return { p: ix, n: -1, u: uv ? uv[ix * 2] : 0, v: uv ? uv[ix * 2 + 1] : 0 }; }), flags: 0, tex: t || '', mat: '', sec: faceSec[fi] };
    }).filter(Boolean);
     return { resolution: resolution, points: pts, normals: new Float32Array(0), faces: outFaces, selections: [], nPoints: vc, nFaces: outFaces.length, noUV: !uv };
   }
@@ -741,7 +768,7 @@ body.noxmas .snowcap::before{display:none}
     });
     var reverse = vol < 0;
     if (opt.flip) reverse = !reverse;
-    var faces = lod.faces.map(function (f) { return reverse ? { v: f.v.slice().reverse(), tex: f.tex, mat: f.mat } : f; });
+    var faces = lod.faces.map(function (f) { return reverse ? { v: f.v.slice().reverse(), tex: f.tex, mat: f.mat, sec: f.sec } : f; });
     // Normalen an die Flächen anpassen
     var agree = 0, disagree = 0;
     faces.forEach(function (f) {
@@ -765,22 +792,28 @@ body.noxmas .snowcap::before{display:none}
     var m = /color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(tex || '');
     return m ? [+m[1], +m[2], +m[3], +m[4]] : null;
   }
-  function materialKey(f) { return (f.tex || '') + '|' + (f.mat || ''); }
+  function materialKey(f) {
+    if (!f.tex && !f.mat) return '#teil' + (f.sec != null && f.sec >= 0 ? f.sec : '');
+    return (f.tex || '') + '|' + (f.mat || '');
+  }
+  // gut unterscheidbare Farben für Teile ohne Textur (gleich in Vorschau und Blender)
+  var PALETTE = [[0.95,0.45,0.2],[0.25,0.6,0.95],[0.95,0.8,0.2],[0.6,0.35,0.9],[0.3,0.85,0.5],[0.95,0.35,0.6],[0.2,0.8,0.85],[0.7,0.6,0.4],[0.55,0.85,0.25],[0.9,0.55,0.95]];
+  function autoColor(key) { var h = 0; for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0; return PALETTE[h % PALETTE.length]; }
 
   function collectMaterials(model, lodIndexes) {
     var map = {}, list = [], used = {};
     lodIndexes.forEach(function (li) {
       model.lods[li].faces.forEach(function (f) {
         var k = materialKey(f);
-        if (map[k]) return;
+        if (map[k]) { map[k].faces++; return; }
         var nm;
-        if (!f.tex && !f.mat) nm = 'ohne_textur';
+        if (!f.tex && !f.mat) nm = 'ohne_textur_' + (list.filter(function (x) { return x.key.indexOf('#teil') === 0; }).length + 1);
         else if (f.tex && f.tex.charAt(0) === '#') nm = 'farbe';
         else nm = stripExt(baseName(f.tex || f.mat));
         nm = safeName(nm);
         var base = nm, c = 2; while (used[nm]) nm = base + '_' + (c++);
         used[nm] = 1;
-        var m = { key: k, name: nm, tex: f.tex, mat: f.mat, color: procColor(f.tex), image: null };
+        var m = { key: k, name: nm, tex: f.tex, mat: f.mat, color: procColor(f.tex), auto: autoColor(k), image: null, faces: 1 };
         map[k] = m; list.push(m);
       });
     });
@@ -802,7 +835,8 @@ body.noxmas .snowcap::before{display:none}
     lodIdx.forEach(function (li) {
       var lod = model.lods[li], prep = prepareLod(lod, opt);
       var P = prep.P, N = prep.N;
-      o.push('o ' + safeName(lodIdx.length > 1 ? name + '_' + lod.name : name));
+      var objName = safeName(lodIdx.length > 1 ? name + '_' + lod.name : name);
+      if (!opt.split) o.push('o ' + objName);
       for (var i = 0; i < lod.nPoints; i++) o.push('v ' + num(P[i * 3]) + ' ' + num(P[i * 3 + 1]) + ' ' + num(P[i * 3 + 2]));
       var uvMap = {}, uvList = [];
       prep.faces.forEach(function (f) { f.v.forEach(function (c) {
@@ -817,6 +851,7 @@ body.noxmas .snowcap::before{display:none}
       var groups = {}, order = [];
       prep.faces.forEach(function (f) { var k = materialKey(f); if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(f); });
       order.forEach(function (k) {
+        if (opt.split) o.push('o ' + objName + '__' + mats.map[k].name);
         if (opt.mtl !== false) o.push('usemtl ' + mats.map[k].name);
         groups[k].forEach(function (f) {
           o.push('f ' + f.v.map(function (c) {
@@ -835,7 +870,7 @@ body.noxmas .snowcap::before{display:none}
     var o = ['# ' + name + ' – Materialien'];
     materials.forEach(function (m) {
       o.push('', 'newmtl ' + m.name);
-      var c = m.color || [0.8, 0.8, 0.8, 1];
+      var c = m.image ? [1, 1, 1, m.color ? m.color[3] : 1] : (m.color || m.auto.concat(1));
       o.push('Ka 0 0 0', 'Kd ' + num(c[0]) + ' ' + num(c[1]) + ' ' + num(c[2]), 'Ks 0.1 0.1 0.1', 'Ns 20', 'd ' + num(c[3] == null ? 1 : c[3]), 'illum 2');
       if (m.image) {
         o.push('map_Kd ' + m.image);
@@ -1020,6 +1055,7 @@ body.noxmas .snowcap::before{display:none}
   }
 
   root.MK = {
+    materialKey: materialKey, autoColor: autoColor, collectMaterials: collectMaterials,
     parseP3D: parseP3D, defaultLod: defaultLod, prepareLod: prepareLod, buildOBJ: buildOBJ, buildMTL: buildMTL,
     decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x
   };
@@ -1034,7 +1070,7 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { theme:'hacker', auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var S = { split:true, closed:{}, theme:'hacker', auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
 try { Object.assign(S, JSON.parse(localStorage.getItem('mk-settings') || '{}')); } catch(e){}
 function save(){ try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function applyUI(){
@@ -1049,6 +1085,7 @@ $('optAuto').onchange=function(){ S.auto=this.checked; save(); };
 $('optTheme').value=S.theme; $('optTheme').onchange=function(){ S.theme=this.value; save(); if(window.applyTheme) applyTheme(S.theme); hx('theme → '+S.theme); };
 $('optLod').onchange=function(){ S.lod=this.value; save(); };
 $('optMtl').onchange=function(){ S.mtl=this.checked; save(); };
+$('optSplit').checked=S.split; $('optSplit').onchange=function(){ S.split=this.checked; save(); };
 $('optPaa').onchange=function(){ S.paa=this.checked; save(); };
 $('optScale').onchange=function(){ var v=parseFloat(this.value); S.scale = v>0 ? v : 1; this.value=S.scale; save(); refreshView(); };
 $('optFlip').onchange=function(){ S.flip=this.checked; save(); refreshView(); };
@@ -1189,12 +1226,12 @@ async function convert(f, dirOverride){
     var base = MK.safeName(MK.stripExt(f.name)), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
     for (var s=0;s<sets.length;s++){
       var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
-      var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl });
+      var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
       if (S.mtl){
         for (var i=0;i<r.materials.length;i++){
-          var m=r.materials[i], img=f.tex[m.tex];
-          if (img && img.rgba && S.paa){
-            var png = MK.safeName(MK.stripExt(MK.baseName(m.tex)))+'.png';
+          var m=r.materials[i], ov=f.override&&f.override[m.key], img=ov ? ov.img : f.tex[m.tex];
+          if (img && img.rgba && (S.paa || ov)){
+            var png = MK.safeName(MK.stripExt(MK.baseName(ov ? ov.name : m.tex)))+'.png';
             m.image=png; m.hasAlpha=img.hasAlpha;
             if (!pngDone[png]){ pngDone[png]=1; out.push({ name:png, data: await rgbaToPng(img) }); }
           } else if (m.tex && m.tex.charAt(0)!=='#') missing++;
@@ -1237,11 +1274,11 @@ async function outDir(f){
 }
 
 $('convertAll').onclick = async function(){
-  var todo=files.filter(function(f){ return f.model || f.img; });
+  var todo=files.filter(function(f){ return f.checked && (f.model || f.img); });
   batchDir=null;
   for (var i=0;i<todo.length;i++) await convert(todo[i]);
   batchDir=null;
-  log('✓ '+todo.length+' Datei(en) umgewandelt', 'ok');
+  log('✓ '+todo.length+' Datei(en) umgewandelt', 'ok'); hx(todo.length+' Datei(en) fertig ✓');
 };
 $('convertOne').onclick = function(){ if (selected){ batchDir=null; convert(selected); } };
 $('saveAs').onclick = async function(){ if (!selected || !mk) return; var d=await mk.pickFolder(); if (d) convert(selected, d); };
@@ -1249,22 +1286,52 @@ $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFo
 $('clear').onclick = function(){ files=[]; selected=null; paaPool={}; render(); select(null); };
 
 // ---------- Liste ----------
+var GROUPS=[['p3d','P3D-Modelle'],['paa','PAA-Texturen']];
+function visible(){
+  var q=($('search').value||'').trim().toLowerCase();
+  return files.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q)>=0; });
+}
+function ready(f){ return !!(f.model || f.img); }
 function render(){
   var L=$('list'); L.innerHTML='';
   if (!files.length){ L.innerHTML='<div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div>'; }
-  files.forEach(function(f){
-    var d=document.createElement('div'); d.className='item'+(f===selected?' sel':'');
-    var sub = f.status==='err' ? 'Fehler' : f.img ? 'PAA · '+f.img.format+' · '+f.img.width+'×'+f.img.height : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
-    if (f.status==='ok') sub='Umgewandelt · '+sub;
-    d.innerHTML='<span class="st '+({ok:'ok',err:'err',busy:'busy'}[f.status]||'')+'"></span><div style="min-width:0"><div class="n"></div><div class="s"></div></div><button class="x" title="Entfernen">✕</button>';
-    d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
-    d.onclick=function(){ select(f); };
-    d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
-    L.appendChild(d);
+  var vis=visible();
+  if (files.length && !vis.length){ L.innerHTML='<div class="empty">Keine Treffer für „<span></span>“</div>'; L.querySelector('span').textContent=$('search').value; }
+  GROUPS.forEach(function(g){
+    var items=vis.filter(function(f){ return (f.kind||'p3d')===g[0]; });
+    if (!items.length) return;
+    var closed=!!(S.closed||{})[g[0]], checked=items.filter(function(f){ return f.checked; }).length;
+    var h=document.createElement('div'); h.className='grp'+(closed?' closed':'');
+    h.innerHTML='<span class="ar">▾</span><input type="checkbox" title="Ganze Gruppe auswählen"><span></span><span class="gc"></span>';
+    h.children[2].textContent=g[1]; h.children[3].textContent=(checked?checked+' / ':'')+items.length;
+    var gcb=h.querySelector('input'); gcb.checked=checked===items.length; gcb.indeterminate=checked>0&&checked<items.length;
+    gcb.onclick=function(ev){ ev.stopPropagation(); var v=this.checked; items.forEach(function(f){ f.checked=v; }); render(); };
+    h.onclick=function(){ S.closed=S.closed||{}; S.closed[g[0]]=!closed; save(); render(); };
+    L.appendChild(h);
+    if (closed) return;
+    items.forEach(function(f){
+      var d=document.createElement('div'); d.className='item'+(f===selected?' sel':'');
+      var sub = f.status==='err' ? 'Fehler' : f.img ? f.img.format+' · '+f.img.width+'×'+f.img.height : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
+      if (f.status==='ok') sub='Umgewandelt · '+sub;
+      d.innerHTML='<input type="checkbox" class="cb"><span class="st '+({ok:'ok',err:'err',busy:'busy'}[f.status]||'')+'"></span><div style="min-width:0"><div class="n"></div><div class="s"></div></div><button class="x" title="Entfernen">✕</button>';
+      var cb=d.querySelector('.cb'); cb.checked=!!f.checked; cb.disabled=!ready(f);
+      cb.onclick=function(ev){ ev.stopPropagation(); f.checked=this.checked; render(); };
+      d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
+      d.onclick=function(){ select(f); };
+      d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
+      L.appendChild(d);
+    });
   });
   $('count').textContent = files.length ? files.length : '';
-  $('convertAll').disabled = !files.some(function(f){ return f.model || f.img; });
+  var rv=vis.filter(ready), nChecked=files.filter(function(f){ return f.checked && ready(f); }).length;
+  var sa=$('selAll'); sa.checked = rv.length>0 && rv.every(function(f){ return f.checked; }); sa.indeterminate = !sa.checked && rv.some(function(f){ return f.checked; }); sa.disabled=!rv.length;
+  $('convertAll').disabled = !nChecked;
+  $('convertAll').textContent = nChecked ? nChecked+' umwandeln' : 'Auswahl umwandeln';
 }
+$('search').oninput=render;
+$('search').onkeydown=function(e){ if (e.key==='Escape'){ this.value=''; render(); } };
+$('selAll').onchange=function(){ var v=this.checked; visible().filter(ready).forEach(function(f){ f.checked=v; }); render(); };
+window.addEventListener('keydown',function(e){ if (e.ctrlKey && (e.key==='f'||e.key==='F')){ e.preventDefault(); $('search').focus(); } });
 
 function select(f){
   selected=f; render();
@@ -1274,6 +1341,7 @@ function select(f){
   $('openOut').disabled = !(f && f.out && mk);
   $('saveAs').disabled = !(f && (f.model || f.img) && mk);
   showImage(f && f.img ? f : null);
+  if (!f || !f.model) renderMats(null);
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
     $('viewInfo').innerHTML='<b></b><br>Textur · '+f.img.format+' · '+f.img.width+' × '+f.img.height+' Pixel'+(f.img.hasAlpha?' · mit Transparenz':'');
     $('viewInfo').querySelector('b').textContent=f.name; return; }
@@ -1291,10 +1359,75 @@ function refreshView(){
   var f=selected; if (!f || !f.model) return;
   var li = f.lodPick!=null ? f.lodPick : MK.defaultLod(f.model), lod=f.model.lods[li];
   viewer.set(f, li);
+  renderMats(f, li);
   var texCount=0, texFound=0; Object.keys(f.tex).forEach(function(k){ texCount++; if (f.tex[k].rgba) texFound++; });
   $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
   $('viewInfo').querySelector('b').textContent=f.name;
 }
+
+// ---------- Materialliste ----------
+function texFor(f,key,texPath){ return (f.override && f.override[key] && f.override[key].img) || (texPath && f.tex[texPath]) || null; }
+var thumbCache=new WeakMap();
+function thumb(img){
+  if (thumbCache.has(img)) return thumbCache.get(img);
+  var c=document.createElement('canvas'), k=Math.min(1,64/Math.max(img.width,img.height)); c.width=Math.max(1,img.width*k|0); c.height=Math.max(1,img.height*k|0);
+  var src=document.createElement('canvas'); src.width=img.width; src.height=img.height;
+  var d=src.getContext('2d').createImageData(img.width,img.height); d.data.set(img.rgba); src.getContext('2d').putImageData(d,0,0);
+  c.getContext('2d').drawImage(src,0,0,c.width,c.height);
+  var url=c.toDataURL(); thumbCache.set(img,url); return url;
+}
+var texTarget=null;
+function renderMats(f, li){
+  var P=$('matPanel'), L=$('matList');
+  if (!f || !f.model){ P.style.display='none'; return; }
+  var mats=MK.collectMaterials(f.model,[li]).list;
+  P.style.display = mats.length ? 'flex' : 'none';
+  $('matCount').textContent=mats.length; L.innerHTML='';
+  mats.forEach(function(m){
+    var img=texFor(f,m.key,m.tex), ov=f.override&&f.override[m.key];
+    var d=document.createElement('div'); d.className='mat';
+    var sw=document.createElement('div'); sw.className='sw';
+    if (img && img.rgba) sw.style.backgroundImage='url('+thumb(img)+')';
+    else { var c=m.color||m.auto; sw.style.background='rgb('+(c[0]*255|0)+','+(c[1]*255|0)+','+(c[2]*255|0)+')'; }
+    var info=document.createElement('div'); info.style.minWidth='0';
+    var n=document.createElement('div'); n.className='mn'; n.textContent=m.name;
+    var st=document.createElement('div'); st.className='ms';
+    var state=document.createElement('span');
+    if (ov){ state.className='ok'; state.textContent='✓ '+ov.name; }
+    else if (img && img.rgba){ state.className='ok'; state.textContent='✓ Textur gefunden'; }
+    else if (m.color){ state.textContent='Farbe'; }
+    else if (m.tex){ state.className='no'; state.textContent='✗ Textur fehlt'; }
+    else { state.className='no'; state.textContent='ohne Textur'; }
+    var b=document.createElement('button'); b.textContent= ov ? 'ändern' : 'zuweisen'; b.title='Textur für dieses Teil wählen (PAA, PNG, JPG …)';
+    b.onclick=function(){ texTarget={f:f,key:m.key}; $('texIn').click(); };
+    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b);
+    if (ov){ var x=document.createElement('button'); x.textContent='✕'; x.title='Zuweisung entfernen'; x.onclick=function(){ delete f.override[m.key]; refreshView(); }; st.appendChild(x); }
+    info.appendChild(n); info.appendChild(st);
+    d.title=(m.tex||'keine Textur im Modell')+(m.mat?'\n'+m.mat:'');
+    d.appendChild(sw); d.appendChild(info);
+    d.onmouseenter=function(){ viewer.highlight && viewer.highlight(m.key); };
+    d.onmouseleave=function(){ viewer.highlight && viewer.highlight(null); };
+    L.appendChild(d);
+  });
+}
+async function decodeImageFile(file, path){
+  var low=(file? file.name : path).toLowerCase();
+  if (/\.pa[ac]$/.test(low)) return MK.decodePAA(file ? new Uint8Array(await file.arrayBuffer()) : await mk.readFile(path));
+  var bmp=await createImageBitmap(file);
+  var c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height; var ctx=c.getContext('2d'); ctx.drawImage(bmp,0,0);
+  var data=ctx.getImageData(0,0,c.width,c.height).data, hasAlpha=false; for (var i=3;i<data.length;i+=4) if (data[i]<250){ hasAlpha=true; break; }
+  return { width:c.width, height:c.height, rgba:new Uint8Array(data.buffer.slice(0)), hasAlpha:hasAlpha, format:'Bild' };
+}
+$('texIn').onchange=async function(){
+  var file=this.files[0]; this.value=''; if (!file || !texTarget) return;
+  try {
+    var img=await decodeImageFile(file);
+    var t=texTarget; t.f.override=t.f.override||{}; t.f.override[t.key]={ img:img, name:file.name };
+    hx('assign '+file.name+' → '+t.key);
+    if (t.f===selected) refreshView();
+    log('Textur zugewiesen: '+file.name+' – beim nächsten Umwandeln kommt sie mit.', 'ok');
+  } catch(e){ showErr('Textur konnte nicht gelesen werden: '+clean(e)); }
+};
 
 // ---------- Bildansicht für Texturen ----------
 var imgCache=null;
@@ -1382,12 +1515,13 @@ var viewer = (function(){
   function sh(type,src){ var s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); return s; }
   var prog=gl.createProgram();
   gl.attachShader(prog, sh(gl.VERTEX_SHADER,'#version 300 es\nin vec3 p;in vec3 n;in vec2 t;uniform mat4 M;out vec3 vn;out vec2 vt;void main(){vn=n;vt=t;gl_Position=M*vec4(p,1.);}'));
-  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;in vec3 vn;in vec2 vt;uniform sampler2D tex;uniform vec3 L;uniform bool back;out vec4 o;void main(){vec3 n=normalize(vn);if(!gl_FrontFacing)n=-n;vec4 c=texture(tex,vt);if(c.a<.3)discard;float d=max(dot(n,L),0.)*.75+.3;vec3 col=c.rgb*d;if(back&&!gl_FrontFacing)col=mix(col,vec3(.95,.2,.2),.75);o=vec4(col,1.);}'));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;in vec3 vn;in vec2 vt;uniform sampler2D tex;uniform vec3 L;uniform bool back;uniform float dim;out vec4 o;void main(){vec3 n=normalize(vn);if(!gl_FrontFacing)n=-n;vec4 c=texture(tex,vt);if(c.a<.3)discard;float d=max(dot(n,L),0.)*.75+.3;vec3 col=c.rgb*d;if(back&&!gl_FrontFacing)col=mix(col,vec3(.95,.2,.2),.75);o=vec4(col*dim,1.);}'));
   gl.linkProgram(prog);
   var lineProg=gl.createProgram();
   gl.attachShader(lineProg, sh(gl.VERTEX_SHADER,'#version 300 es\nin vec3 p;uniform mat4 M;void main(){gl_Position=M*vec4(p,1.);}'));
   gl.attachShader(lineProg, sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;out vec4 o;void main(){o=vec4(.22,.24,.27,1.);}'));
   gl.linkProgram(lineProg);
+  var hiKey=null, texOf={};
   var groups=[], grid=null, cam={yaw:0.7,pitch:0.35,dist:6,target:[0,1,0]}, radius=3, texCache=new Map();
   var white=mkTex(1,1,new Uint8Array([200,200,200,255]));
   function mkTex(w,h,data){ var t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,data); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT); return t; }
@@ -1403,9 +1537,9 @@ var viewer = (function(){
     groups.forEach(function(g){ gl.deleteBuffer(g.buf); if (g.own) gl.deleteTexture(g.tex); }); groups=[];
     if (!f){ draw(); return; }
     var lod=f.model.lods[li], prep=MK.prepareLod(lod,{scale:S.scale, flip:S.flip}), P=prep.P;
-    var by={}, order=[], min=[1e9,1e9,1e9], max=[-1e9,-1e9,-1e9];
+    var by={}, order=[], min=[1e9,1e9,1e9], max=[-1e9,-1e9,-1e9]; texOf={};
     prep.faces.forEach(function(fc){
-      var k=fc.tex||''; if (!by[k]){ by[k]=[]; order.push(k); }
+      var k=MK.materialKey(fc); if (!by[k]){ by[k]=[]; order.push(k); texOf[k]=fc.tex||''; }
       var arr=by[k], v=fc.v;
       var a=v[0].p*3,b=v[1].p*3,c=v[2].p*3;
       var ux=P[b]-P[a],uy=P[b+1]-P[a+1],uz=P[b+2]-P[a+2],wx=P[c]-P[a],wy=P[c+1]-P[a+1],wz=P[c+2]-P[a+2];
@@ -1417,10 +1551,10 @@ var viewer = (function(){
     });
     order.forEach(function(k){
       var b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(by[k]),gl.STATIC_DRAW);
-      var img=f.tex[k], tex=white, own=false;
+      var img=texFor(f,k,texOf[k]), tex=white, own=false;
       if (img && img.rgba){ tex=mkTex(img.width,img.height,img.rgba); own=true; }
-      else { var pc=/color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(k); if (pc){ tex=colTex([+pc[1],+pc[2],+pc[3]]); own=true; } }
-      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own});
+      else { var pc=/color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(texOf[k]); tex=colTex(pc?[+pc[1],+pc[2],+pc[3]]:MK.autoColor(k)); own=true; }
+      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own,key:k});
     });
     if (min[0]>max[0]){ min=[-1,0,-1]; max=[1,1,1]; }
     var nid = f.id+':'+li;
@@ -1457,6 +1591,7 @@ var viewer = (function(){
       gl.enableVertexAttribArray(an); gl.vertexAttribPointer(an,3,gl.FLOAT,false,32,12);
       gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at,2,gl.FLOAT,false,32,24);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,g.tex);
+      gl.uniform1f(gl.getUniformLocation(prog,'dim'), hiKey && g.key!==hiKey ? 0.22 : 1.0);
       gl.drawArrays(gl.TRIANGLES,0,g.count);
     });
   }
@@ -1472,10 +1607,10 @@ var viewer = (function(){
     draw();
   });
   cv.addEventListener('wheel',function(e){ e.preventDefault(); cam.dist*=Math.pow(1.0015,e.deltaY); cam.dist=Math.max(radius*0.05,Math.min(radius*40,cam.dist)); draw(); },{passive:false});
-  window.addEventListener('keydown',function(e){ if ((e.key==='f'||e.key==='F') && selected){ viewer._last=null; refreshView(); } });
+  window.addEventListener('keydown',function(e){ if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return; if ((e.key==='f'||e.key==='F') && !e.ctrlKey && selected){ viewer._last=null; refreshView(); } });
   $('showBack').onchange=draw;
   window.addEventListener('resize',draw);
-  return { set:set, draw:draw };
+  return { set:set, draw:draw, highlight:function(k){ hiKey=k||null; draw(); } };
 })();
 render();
 })();
