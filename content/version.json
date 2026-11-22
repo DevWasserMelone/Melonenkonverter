@@ -1,5 +1,5 @@
 {
-  "version": "1.0.21",
+  "version": "1.0.22",
   "date": "2026-11-22",
-  "changelog": "✨ Melonenkonverter 1.0.21\n\n✨ Neu\n• KI-Texturen: Teil anklicken, kurz beschreiben, die KI malt die Textur (eigener Gemini-Schlüssel nötig)\n• Nahtlos kachelbar, mit UV-Vorlage oder in 2K\n• Alle KI-Versuche im Textur-Browser durchblättern"
+  "changelog": "✨ Melonenkonverter 1.0.22\n\n✨ Neu\n• Eingebauter Textur-Generator: gratis, offline, unbegrenzt (Stoff, Tarnmuster, Metall, Holz, Leder, Rost …)\n• Kostenlose Online-KI ohne Konto als zweite Quelle\n• Quelle wählbar unter „Texturen erstellen“"
 }
