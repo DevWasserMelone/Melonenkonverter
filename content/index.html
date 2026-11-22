@@ -111,27 +111,6 @@ body.hacker #tb{background:rgba(2,10,5,.95)}
 .tbempty{color:var(--dim);font-size:12px;padding:30px 10px}
 .mat{cursor:pointer}
 .mat .au{color:#d7c23b}
-#toasts{position:fixed;left:50%;top:74px;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
-.toast{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font-size:12.5px;box-shadow:0 6px 24px rgba(0,0,0,.45);max-width:560px;animation:tin .2s ease-out;transition:opacity .3s,transform .3s}
-.toast.ok{border-color:var(--green)} .toast.err{border-color:var(--red);color:#ffb3b3}
-.toast.out{opacity:0;transform:translateY(-6px)}
-@keyframes tin{from{opacity:0;transform:translateY(-8px)}}
-#ctx{position:fixed;display:none;z-index:210;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:4px;min-width:190px;box-shadow:0 8px 28px rgba(0,0,0,.5)}
-#ctx div{padding:6px 10px;border-radius:5px;cursor:pointer;font-size:12.5px}
-#ctx div:hover{background:rgba(70,181,98,.15)} #ctx div.dis{opacity:.4;pointer-events:none} #ctx hr{border:0;border-top:1px solid var(--line);margin:4px 0}
-#help,#blGuide,#aiDlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:220}
-#help.on,#blGuide.on,#aiDlg.on{display:flex}
-.hbox.guide{width:480px;max-height:90vh;overflow:auto}
-.guide .lead{color:var(--dim);margin:0 0 10px;font-size:12.5px}
-.guide .step{display:flex;gap:10px;margin:10px 0;font-size:12.5px;line-height:1.5}
-.guide .n{flex:none;width:22px;height:22px;border-radius:50%;background:rgba(70,181,98,.18);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
-.guide .hint{color:var(--dim);font-size:11.5px;margin-top:3px}
-.guide .step .btn{margin-top:6px}
-.guide .saved{font-size:11.5px;color:var(--green);margin-top:5px;word-break:break-all}
-.hbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;min-width:380px}
-.hbox h2{margin:0 0 10px;font-size:15px} .hbox table{border-collapse:collapse;margin-bottom:12px} .hbox td{padding:4px 14px 4px 0;font-size:12.5px} .hbox td:first-child{color:var(--green);white-space:nowrap}
-.btn.blend{border-color:#e87d0d;color:#ffb15c} .btn.blend:hover{background:rgba(232,125,13,.15)}
-body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 ::-webkit-scrollbar{width:9px} ::-webkit-scrollbar-thumb{background:#2f343b;border-radius:5px}
 </style>
 </head>
@@ -141,8 +120,6 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
   <h1 class="glitch">Melonenkonverter</h1><span class="ver" id="ver">–</span>
   <div class="sp"></div>
   <div class="snowridge" style="position:absolute;left:0;right:0;bottom:-10px;z-index:5"></div>
-  <button class="btn blend" id="blHead" title="Blender einrichten" style="padding:4px 10px">🟧 Blender</button>
-  <button class="btn" id="helpBtn" title="Tastenkürzel (F1)" style="padding:4px 10px">?</button>
   <div class="watch" title="Neue P3D-Dateien in diesem Ordner werden sofort umgewandelt"><span class="dot" id="wDot"></span><span id="wTxt">Ordner-Automatik aus</span></div>
 </header>
 <main>
@@ -163,7 +140,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       <canvas id="view"></canvas>
       <canvas id="img2d" style="position:absolute;inset:0;width:100%;height:100%;display:none"></canvas>
       <div id="viewInfo"></div>
-      <div id="viewEmpty"><div style="text-align:center;line-height:1.7"><div style="font-size:15px;color:var(--text);margin-bottom:6px">Zieh eine P3D-, OBJ- oder PAA-Datei ins Fenster</div>Danach siehst du hier die Vorschau mit Texturen.<br>Mit <b>An Blender</b> landet das Modell direkt in Blender · <b>F1</b> zeigt alle Tastenkürzel</div></div>
+      <div id="viewEmpty">Wähle links eine Datei für die Vorschau</div>
       <div id="matPanel"><div class="mphead"><span>Materialien</span><span id="matCount"></span></div><div id="matList"></div></div>
       <input type="file" id="texIn" accept=".paa,.pac,.png,.jpg,.jpeg,.tga,.bmp,.webp" hidden>
       <div id="tb">
@@ -179,8 +156,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
       <label class="chk" style="margin:0 0 0 6px;white-space:nowrap"><input type="checkbox" id="showBack">Rückseiten</label>
       <span class="sp"></span>
       <button class="btn" id="openOut" disabled title="Ordner öffnen">📂</button>
-      <button class="btn" id="saveAs" disabled title="Speichern unter …">💾</button>
-      <button class="btn blend" id="toBlender" disabled title="An Blender senden (Strg + B)">An Blender</button>
+      <button class="btn" id="saveAs" disabled>Speichern unter …</button>
       <button class="btn main snowcap" id="convertOne" disabled>Umwandeln</button>
     </div>
   </section>
@@ -188,7 +164,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
     <div class="colhead">Einstellungen</div>
     <div class="set">
       <h3>Automatik</h3>
-      <label class="chk"><input type="checkbox" id="optAuto"><span>Sofort umwandeln<small>Dateien werden direkt nach dem Reinziehen gespeichert</small></span></label>
+      <label class="chk"><input type="checkbox" id="optAuto" checked><span>Sofort umwandeln<small>Dateien werden direkt nach dem Reinziehen gespeichert</small></span></label>
       <div class="row" id="watchRow">
         <div style="display:flex;align-items:center;gap:8px"><button class="toggle" id="watchTgl"></button><span>Ordner überwachen</span></div>
         <div class="path" id="watchPath">Neue oder geänderte P3D-Dateien im gewählten Ordner werden automatisch umgewandelt.</div>
@@ -208,19 +184,6 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
         <select id="optLod"><option value="best">Beste Ansicht (empfohlen)</option><option value="vis">Alle Ansicht-LODs, je eine Datei</option><option value="all">Alle LODs in einer Datei</option></select>
       </div>
 
-      <h3>Blender</h3>
-      <button class="btn blend" id="addonBtn" style="width:100%">🟧 Blender einrichten</button>
-      <div class="path" id="bridgePath">Mit dem Add-on landen Modelle per „An Blender“ direkt mit Texturen in Blender.</div>
-      <button class="btn" id="bridgePick" style="width:100%;margin-top:6px;display:none">Verbindungsordner wählen …</button>
-
-      <h3>Texturen erstellen</h3>
-      <div class="row"><label class="t">Quelle</label><select id="aiSource"><option value="polli">Online-KI – gratis, ohne Konto (empfohlen)</option><option value="builtin">Eingebaut – offline, einfache Muster</option><option value="gemini">Gemini – eigener Schlüssel (kostenpflichtig)</option></select></div>
-      <div class="path" id="aiSrcHint"></div>
-      <div id="gemBox" style="display:none">
-        <div class="row" style="margin-top:8px"><label class="t">Gemini-API-Schlüssel</label><input type="password" id="aiKey" placeholder="AIza…" spellcheck="false" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none"></div>
-        <div class="row"><label class="t">Modell</label><select id="aiModel"><option value="gemini-3.1-flash-image">Nano Banana 2</option><option value="gemini-3.1-flash-lite-image">Nano Banana 2 Lite</option><option value="gemini-3-pro-image">Nano Banana Pro</option></select></div>
-      </div>
-
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
       <label class="chk"><input type="checkbox" id="optSplit" checked><span>Pro Textur ein eigenes Objekt<small>In Blender heißt jedes Teil wie seine Textur, z. B. „modell__helm_co“</small></span></label>
@@ -235,53 +198,6 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
     </div>
   </section>
 </main>
-<div id="toasts"></div>
-<div id="ctx"></div>
-<div id="blGuide"><div class="hbox guide">
-<h2>🟧 Blender einrichten</h2>
-<p class="lead">Einmal einrichten – danach landet jedes Modell per <b>„An Blender“</b> direkt mit Texturen in Blender.</p>
-<div class="step"><span class="n">1</span><div><b>Add-on herunterladen</b><br><button class="btn main" id="gSave">⬇ Add-on herunterladen</button><div class="saved" id="gSaved"></div></div></div>
-<div class="step"><span class="n">2</span><div><b>Blender öffnen</b> und oben auf <b>Bearbeiten → Einstellungen</b> klicken.</div></div>
-<div class="step"><span class="n">3</span><div>Links auf <b>Add-ons</b>. Oben rechts auf den kleinen Pfeil <b>⌄</b> und <b>„Von Festplatte installieren …“</b> wählen.<div class="hint">Blender 4.1 oder älter: oben direkt auf <b>„Installieren …“</b> klicken.</div></div></div>
-<div class="step"><span class="n">4</span><div>Die Datei <b>melonenkonverter_blender.py</b> auswählen (dort, wo du sie in Schritt 1 gespeichert hast).</div></div>
-<div class="step"><span class="n">5</span><div>Ins Suchfeld <b>„Melone“</b> tippen und bei <b>Melonenkonverter Bridge</b> den <b>Haken setzen</b>.</div></div>
-<div class="step"><span class="n">6</span><div>In der 3D-Ansicht <b>N</b> drücken. Rechts erscheint der Reiter <b>„Melone“</b>.</div></div>
-<div class="step"><span class="n">7</span><div>Hier im Konverter ein Modell wählen und auf <b>„An Blender“</b> klicken (oder <b>Strg + B</b>) – es erscheint automatisch in Blender.</div></div>
-<div class="hint" style="margin-top:6px">Add-on aktualisieren: altes Add-on in den Blender-Einstellungen entfernen, neu installieren und Blender neu starten.</div>
-<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="btn" id="gClose">Schließen</button><button class="btn main" id="gDone">Fertig eingerichtet</button></div>
-</div></div>
-<div id="aiDlg"><div class="hbox guide" style="width:560px">
-<h2>✨ Textur erstellen für <span id="aiMat"></span></h2>
-<p class="lead"><span id="aiSrcLine" style="color:var(--green)"></span><br>Beschreib kurz, wie das Teil aussehen soll – z. B. „abgenutztes schwarzes Metall mit Kratzern“, „Multicam-Tarnstoff“, „altes Leder braun“.</p>
-<textarea id="aiPrompt" rows="3" placeholder="Was soll drauf?" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:8px;outline:none;resize:vertical"></textarea>
-<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0">
-  <label class="chk"><input type="checkbox" id="aiSeamless" checked><span>Nahtlos kachelbar<small>Für Stoff, Metall, Holz – wiederholt sich ohne Kanten</small></span></label>
-  <label class="chk" id="aiUVRow"><input type="checkbox" id="aiUV"><span>UV-Layout als Vorlage<small>Die KI bekommt die Form der Teile mit – für Logos/Details an bestimmten Stellen</small></span></label>
-  <label class="chk"><input type="checkbox" id="ai2k"><span>2K statt 1K<small>Schärfer, dauert länger</small></span></label>
-  <label class="chk" id="aiAllRow"><input type="checkbox" id="aiAll"><span>Für alle Teile ohne Textur<small id="aiAllInfo"></small></span></label>
-</div>
-<div id="aiOut" style="display:none;gap:12px;align-items:flex-start;margin:6px 0">
-  <div id="aiImg" style="width:180px;height:180px;flex:none;border-radius:6px;border:1px solid var(--line);background:#0d141d center/cover no-repeat"></div>
-  <div id="aiInfo" style="font-size:12px;color:var(--dim);line-height:1.5"></div>
-</div>
-<div id="aiMsg" style="font-size:12px;min-height:16px;margin:4px 0"></div>
-<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" id="aiClose">Schließen</button><button class="btn main" id="aiGo">✨ Erstellen</button></div>
-</div></div>
-<div id="help"><div class="hbox"><h2>Tastenkürzel</h2>
-<table>
-<tr><td>Strg + O</td><td>Dateien öffnen</td></tr>
-<tr><td>Strg + Enter</td><td>Gewählte Datei umwandeln</td></tr>
-<tr><td>Strg + Umschalt + Enter</td><td>Alle angehakten umwandeln</td></tr>
-<tr><td>Strg + B</td><td>An Blender senden</td></tr>
-<tr><td>↑ / ↓</td><td>Durch die Liste gehen</td></tr>
-<tr><td>Leertaste</td><td>Haken setzen / entfernen</td></tr>
-<tr><td>Strg + A</td><td>Alle anhaken</td></tr>
-<tr><td>Entf</td><td>Gewählte Datei aus der Liste nehmen</td></tr>
-<tr><td>Strg + F</td><td>Suchen</td></tr>
-<tr><td>F</td><td>Modell zentrieren</td></tr>
-<tr><td>← / →</td><td>Im Textur-Browser blättern</td></tr>
-<tr><td>Rechtsklick</td><td>Menü auf einer Datei</td></tr>
-</table><button class="btn" id="helpClose">Schließen</button></div></div>
 <div id="term"></div>
 <footer><span class="log" id="log">Bereit.</span></footer>
 
@@ -1251,190 +1167,6 @@ body.noxmas .snowcap::before{display:none}
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
-/* Melonenkonverter – eingebauter Textur-Generator (offline, kostenlos, unbegrenzt) */
-(function (root) {
-  'use strict';
-  // ---------- kachelbares Rauschen ----------
-  function rng(seed) { var s = seed >>> 0 || 1; return function () { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
-  function makeNoise(seed) {
-    var R = rng(seed), perm = new Uint8Array(512), g = new Float32Array(256);
-    for (var i = 0; i < 256; i++) { perm[i] = i; g[i] = R() * 2 - 1; }
-    for (i = 255; i > 0; i--) { var j = (R() * (i + 1)) | 0, t = perm[i]; perm[i] = perm[j]; perm[j] = t; }
-    for (i = 0; i < 256; i++) perm[i + 256] = perm[i];
-    function fade(t) { return t * t * (3 - 2 * t); }
-    // Wertrauschen mit Periode p (für nahtlose Kacheln)
-    function v(x, y, p, q) {
-      q = q || p;
-      var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-      var x0 = ((xi % p) + p) % p, y0 = ((yi % q) + q) % q, x1 = (x0 + 1) % p & 255, y1 = (y0 + 1) % q & 255; x0 &= 255; y0 &= 255;
-      var a = g[perm[perm[x0] + y0]], b = g[perm[perm[x1] + y0]], c = g[perm[perm[x0] + y1]], d = g[perm[perm[x1] + y1]];
-      var u = fade(xf), w = fade(yf);
-      return a + (b - a) * u + (c - a) * w + (a - b - c + d) * u * w;
-    }
-    function fbm(x, y, base, oct) {
-      var s = 0, amp = 0.5, f = 1, n = 0;
-      for (var o = 0; o < (oct || 5); o++) { s += v(x * base * f, y * base * f, base * f) * amp; n += amp; amp *= 0.5; f *= 2; }
-      return s / n; // ca. -1..1
-    }
-    // Zellen (Leder, Flecken)
-    function cells(x, y, n) {
-      var px = x * n, py = y * n, xi = Math.floor(px), yi = Math.floor(py), d1 = 9, d2 = 9;
-      for (var dy = -1; dy <= 1; dy++) for (var dx = -1; dx <= 1; dx++) {
-        var cx = xi + dx, cy = yi + dy, wx = ((cx % n) + n) % n, wy = ((cy % n) + n) % n, h = perm[perm[wx & 255] + (wy & 255)];
-        var fx = cx + (perm[h] / 255), fy = cy + (perm[(h + 77) & 511] / 255), dd = Math.hypot(px - fx, py - fy);
-        if (dd < d1) { d2 = d1; d1 = dd; } else if (dd < d2) d2 = dd;
-      }
-      return [d1, d2];
-    }
-    // gebürstet: lang gezogene Streifen, trotzdem nahtlos
-    function brushed(x, y, lines) {
-      var s = 0, amp = 0.5, n = 0;
-      for (var o = 0; o < 3; o++) { var px = 4 << o, py = (lines << o); s += v(x * px, y * py, px, py) * amp; n += amp; amp *= 0.5; }
-      return s / n;
-    }
-    return { v: v, fbm: fbm, cells: cells, brushed: brushed, rand: R };
-  }
-
-  // ---------- Prompt verstehen ----------
-  var COLORS = {
-    schwarz: [22, 22, 24], black: [22, 22, 24], weiss: [225, 225, 220], weiß: [225, 225, 220], white: [225, 225, 220],
-    grau: [110, 112, 114], grey: [110, 112, 114], gray: [110, 112, 114], rot: [150, 30, 28], red: [150, 30, 28],
-    grün: [52, 92, 46], gruen: [52, 92, 46], green: [52, 92, 46], oliv: [86, 88, 54], olive: [86, 88, 54], od: [78, 82, 52],
-    braun: [96, 64, 40], brown: [96, 64, 40], sand: [190, 168, 128], tan: [178, 150, 108], coyote: [140, 112, 78], fde: [160, 135, 100],
-    khaki: [150, 140, 100], beige: [200, 185, 150], blau: [36, 60, 120], blue: [36, 60, 120], navy: [24, 32, 64],
-    gelb: [200, 170, 40], yellow: [200, 170, 40], orange: [200, 100, 30], lila: [90, 50, 120], pink: [210, 110, 150],
-    silber: [170, 172, 176], silver: [170, 172, 176], gold: [190, 150, 60], kupfer: [170, 100, 60], messing: [175, 145, 75]
-  };
-  var MATS = [
-    ['woodland', /woodland/], ['multicam', /multicam|multi cam/], ['flecktarn', /flecktarn|fleck/], ['digital', /digital|marpat|pixel/],
-    ['camo', /tarn|camo|camouflage/], ['carbon', /carbon|kohlefaser/], ['rust', /rost|rust/], ['wood', /holz|wood/],
-    ['leather', /leder|leather/], ['fabric', /stoff|fabric|textil|cloth|baumwolle|nylon|cordura|schal|maske|weste|uniform|tuch/],
-    ['concrete', /beton|concrete|stein|stone|putz/], ['rubber', /gummi|rubber/], ['plastic', /plastik|kunststoff|plastic|polymer/],
-    ['metal', /metall|metal|stahl|steel|eisen|alu|chrom|lauf|waffe|gun/]
-  ];
-  function parse(prompt) {
-    var p = String(prompt || '').toLowerCase(), mat = 'fabric', cols = [];
-    for (var i = 0; i < MATS.length; i++) if (MATS[i][1].test(p)) { mat = MATS[i][0]; break; }
-    Object.keys(COLORS).forEach(function (k) { var at = p.search(new RegExp('(^|[^a-zäöü])' + k)); if (at >= 0) cols.push([at, COLORS[k]]); });
-    cols.sort(function (a, b) { return a[0] - b[0]; });
-    var dark = /dunkel|dark/.test(p), light = /hell|light/.test(p);
-    cols = cols.map(function (c) { var k = dark ? 0.6 : light ? 1.35 : 1; return c[1].map(function (x) { return Math.min(255, x * k); }); });
-    var hash = 0; for (i = 0; i < p.length; i++) hash = (hash * 31 + p.charCodeAt(i)) >>> 0;
-    return {
-      mat: mat, cols: cols,
-      wear: /abgenutzt|abgerieben|alt|worn|used|benutzt|verbraucht|dreckig|schmutz|dirty|staub/.test(p) ? 1 : 0,
-      scratches: /kratzer|scratch|zerkratzt/.test(p) ? 1 : 0,
-      dirty: /dreckig|schmutz|dirty|staub|matsch|schlamm/.test(p) ? 1 : 0,
-      shiny: /glänz|glanz|poliert|shiny|chrom/.test(p) ? 1 : 0,
-      fine: /fein|fine|klein/.test(p) ? 1 : 0, coarse: /grob|coarse|groß/.test(p) ? 1 : 0,
-      seed: hash
-    };
-  }
-
-  function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
-  function shade(c, k) { return [c[0] * k, c[1] * k, c[2] * k]; }
-  function clamp(x) { return x < 0 ? 0 : x > 255 ? 255 : x; }
-
-  // ---------- Erzeugen ----------
-  function generate(prompt, size, variant) {
-    size = size || 1024;
-    var P = parse(prompt), N = makeNoise((P.seed + (variant || 0) * 7919) >>> 0), out = new Uint8Array(size * size * 4);
-    var c = P.cols, scale = P.fine ? 2 : P.coarse ? 0.5 : 1;
-    function col(i, def) { return c[i] || def; }
-    var camoSets = {
-      woodland: [[62, 74, 42], [96, 82, 52], [30, 32, 24], [118, 118, 76]],
-      multicam: [[150, 132, 98], [110, 104, 72], [86, 92, 58], [128, 98, 66], [60, 54, 40]],
-      flecktarn: [[96, 100, 70], [62, 80, 48], [40, 50, 34], [96, 72, 50], [20, 22, 18]],
-      digital: [[110, 116, 90], [84, 92, 64], [60, 66, 46], [150, 140, 108]],
-      camo: [[86, 92, 58], [110, 96, 66], [44, 48, 34], [140, 128, 92]]
-    };
-    var pal = camoSets[P.mat] || null;
-    if (pal && c.length >= 2) pal = c.concat(pal).slice(0, Math.max(3, c.length));
-    for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) {
-      var u = x / size, w = y / size, rgb, n1, n2;
-      switch (P.mat) {
-        case 'woodland': case 'camo': case 'multicam': {
-          var lv = [N.fbm(u, w, 3 * scale, 4), N.fbm(u + 0.37, w + 0.11, 4 * scale, 4), N.fbm(u + 0.71, w + 0.53, 5 * scale, 4)];
-          rgb = pal[0];
-          if (lv[0] > 0.05) rgb = pal[1]; if (lv[1] > 0.12) rgb = pal[2]; if (lv[2] > 0.18) rgb = pal[3 % pal.length];
-          if (P.mat === 'multicam' && N.fbm(u + 0.2, w + 0.9, 9 * scale, 3) > 0.32) rgb = pal[4 % pal.length];
-          rgb = shade(rgb, 0.92 + N.fbm(u, w, 64, 3) * 0.12);
-          break;
-        }
-        case 'flecktarn': {
-          rgb = pal[0];
-          for (var k = 1; k < pal.length; k++) { var cc = N.cells(u + k * 0.13, w + k * 0.29, Math.round((10 + k * 4) * scale)); if (cc[0] < 0.28 + N.fbm(u, w, 20, 2) * 0.12) rgb = pal[k]; }
-          rgb = shade(rgb, 0.93 + N.fbm(u, w, 64, 3) * 0.1);
-          break;
-        }
-        case 'digital': {
-          var q = Math.max(8, Math.round(96 * scale)), qu = Math.floor(u * q) / q, qw = Math.floor(w * q) / q;
-          var d1 = N.fbm(qu, qw, 3, 4), d2 = N.fbm(qu + 0.5, qw + 0.3, 5, 3);
-          rgb = d1 > 0.12 ? pal[2] : d1 > -0.05 ? pal[1] : pal[0]; if (d2 > 0.25) rgb = pal[3 % pal.length];
-          break;
-        }
-        case 'wood': {
-          var base = col(0, [120, 80, 48]), dk = shade(base, 0.62);
-          n1 = N.fbm(u, w, 3, 4); var ring = Math.abs(Math.sin((u * 18 * scale + n1 * 2.2) * Math.PI));
-          n2 = N.fbm(u * 0.2, w, 48, 3);
-          rgb = mix(base, dk, Math.pow(ring, 3) * 0.7 + n2 * 0.15 + 0.1);
-          break;
-        }
-        case 'leather': {
-          var lb = col(0, [86, 56, 36]), cl = N.cells(u, w, Math.round(64 * scale));
-          n1 = N.fbm(u, w, 6, 4);
-          rgb = shade(lb, 0.78 + (cl[1] - cl[0]) * 0.35 + n1 * 0.12);
-          break;
-        }
-        case 'carbon': {
-          var cb = col(0, [44, 44, 48]), t = Math.round(48 * scale), cx = Math.floor(u * t), cy = Math.floor(w * t);
-          var along = ((cx + cy) & 1) ? (u * t % 1) : (w * t % 1), weave = 0.65 + 0.45 * Math.sin(along * Math.PI);
-          rgb = shade(cb, weave * (0.9 + N.fbm(u, w, 32, 2) * 0.1));
-          break;
-        }
-        case 'rust': {
-          var mbase = col(1, [96, 94, 92]), rc = col(0, [120, 56, 26]);
-          n1 = N.fbm(u, w, 4 * scale, 6); n2 = N.fbm(u + 0.3, w, 24, 4);
-          var r = Math.max(0, Math.min(1, (n1 + 0.15) * 2.4));
-          rgb = mix(shade(mbase, 0.9 + n2 * 0.15), shade(rc, 0.75 + n2 * 0.4), r);
-          break;
-        }
-        case 'concrete': {
-          var cbs = col(0, [128, 126, 120]); n1 = N.fbm(u, w, 6 * scale, 6); n2 = N.fbm(u, w, 64, 2);
-          rgb = shade(cbs, 0.85 + n1 * 0.2 + n2 * 0.08); if (N.cells(u, w, 40)[0] < 0.06) rgb = shade(rgb, 0.7);
-          break;
-        }
-        case 'rubber': case 'plastic': {
-          var pb = col(0, P.mat === 'rubber' ? [30, 30, 30] : [40, 42, 44]); n1 = N.fbm(u, w, 48, 3);
-          rgb = shade(pb, 0.95 + n1 * (P.mat === 'rubber' ? 0.12 : 0.06));
-          break;
-        }
-        case 'metal': {
-          var mb = col(0, [58, 60, 62]); n1 = N.brushed(u, w, Math.round(128 * scale)); n2 = N.fbm(u, w, 6, 4);
-          rgb = shade(mb, 0.9 + n1 * (P.shiny ? 0.25 : 0.14) + n2 * 0.08);
-          break;
-        }
-        default: { // Stoff
-          var fb = col(0, [70, 74, 60]), tw = Math.round(160 * scale);
-          var wx2 = Math.sin(u * tw * Math.PI * 2), wy2 = Math.sin(w * tw * Math.PI * 2), weave2 = (((Math.floor(u * tw) + Math.floor(w * tw)) & 1) ? wx2 : wy2);
-          n1 = N.fbm(u, w, 8, 5); n2 = N.fbm(u, w, 96, 2);
-          rgb = shade(fb, 0.88 + weave2 * 0.07 + n1 * 0.1 + n2 * 0.05);
-          if (c[1]) rgb = mix(rgb, c[1], Math.max(0, N.fbm(u + 0.4, w + 0.2, 3, 4)) * 1.2);
-        }
-      }
-      // Abnutzung, Kratzer, Schmutz
-      if (P.wear) { var e = N.fbm(u + 0.6, w + 0.6, 5, 5), met = P.mat === 'metal' || P.mat === 'rust', th = met ? 0.26 : 0.18; if (e > th) rgb = mix(rgb, met ? [120, 120, 118] : shade(rgb, 1.25), Math.min(met ? 0.55 : 1, (e - th) * 3)); }
-      if (P.scratches) { var sc = Math.abs(N.v(u * 6 + N.v(u * 3, w * 3, 3) * 0.8, w * 64, 6, 64)); if (sc < 0.012) rgb = mix(rgb, [170, 170, 168], 0.6); }
-      if (P.dirty) { var dd = N.fbm(u + 0.15, w + 0.85, 3, 5); if (dd > 0.05) rgb = mix(rgb, [70, 58, 42], Math.min(0.55, (dd - 0.05) * 1.6)); }
-      var o = (y * size + x) * 4;
-      out[o] = clamp(rgb[0]); out[o + 1] = clamp(rgb[1]); out[o + 2] = clamp(rgb[2]); out[o + 3] = 255;
-    }
-    return { width: size, height: size, rgba: out, hasAlpha: false, format: 'Generiert', info: P };
-  }
-
-  root.TexGen = { generate: generate, parse: parse };
-})(typeof window !== 'undefined' ? window : globalThis);
-
 </script>
 <script>
 (function(){
@@ -1444,20 +1176,15 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { aiSource:'polli', aiModel:'gemini-3.1-flash-image', aiKey:'', v:4, split:true, closed:{}, theme:'hacker', auto:false, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
-var saved={}; try { saved=JSON.parse(localStorage.getItem('mk-settings') || '{}') || {}; } catch(e){}
-Object.assign(S, saved);
-if (!(saved.v>=3)){ S.auto=false; }
-if (!(saved.v>=4)){ S.aiSource='polli'; S.v=4; try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
+var S = { split:true, closed:{}, theme:'hacker', auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+try { Object.assign(S, JSON.parse(localStorage.getItem('mk-settings') || '{}')); } catch(e){}
 function save(){ try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function applyUI(){
   $('optAuto').checked=S.auto; $('optOut').value=S.out; $('optLod').value=S.lod; $('optMtl').checked=S.mtl;
   $('optPaa').checked=S.paa; $('optScale').value=S.scale; $('optFlip').checked=S.flip;
   $('outPath').textContent = S.out==='folder' ? (S.outDir || 'Noch kein Ordner gewählt') : S.out==='ask' ? 'Vor dem Speichern wird nach dem Ordner gefragt.' : '';
   $('outPick').style.display = (mk && S.out==='folder') ? 'block' : 'none';
-  if (mk && mk.bridgeDir) mk.bridgeDir().then(function(d){ $('bridgePath').textContent='Verbindungsordner: '+d; });
-  else if (mk){ $('bridgePick').style.display='block'; $('bridgePath').textContent= S.bridgeDir ? 'Verbindungsordner: '+S.bridgeDir : 'Noch kein Verbindungsordner gewählt.'; }
-  if(!mk){ $('toBlender').style.display='none'; $('openOut').style.display='none'; $('saveAs').style.display='none'; $('outPath').textContent='Im Browser werden die Dateien als ZIP heruntergeladen.'; $('watchRow').style.display='none'; }
+  if(!mk){ $('openOut').style.display='none'; $('saveAs').style.display='none'; $('outPath').textContent='Im Browser werden die Dateien als ZIP heruntergeladen.'; $('watchRow').style.display='none'; }
 }
 applyUI();
 $('optAuto').onchange=function(){ S.auto=this.checked; save(); };
@@ -1485,14 +1212,7 @@ function clean(e){
   return m;
 }
 // ---------- Statuszeile ----------
-var quiet=false;
-function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); if ((cls==='ok'&&!quiet)||cls==='err') toast(msg.replace(/^[✓✗] /,''), cls); }
-function toast(msg, cls, ms){
-  var box=$('toasts'), t=document.createElement('div'); t.className='toast '+(cls||'');
-  t.textContent=(cls==='ok'?'✓ ':cls==='err'?'✗ ':'')+msg; box.appendChild(t);
-  while (box.children.length>3) box.removeChild(box.firstChild);
-  setTimeout(function(){ t.classList.add('out'); setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 300); }, ms||3500);
-}
+function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); }
 function showErr(msg){
   var e=$('err'); e.style.display=msg?'flex':'none'; e.innerHTML='';
   if(!msg) return;
@@ -1511,7 +1231,7 @@ async function addEntries(entries){
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
     if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
-    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; }
+    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; if (hasModel) continue; }
     else if (!/\.(p3d|obj)$/.test(low)) continue;
     var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
@@ -1636,40 +1356,35 @@ function rgbaToPng(img){
 }
 
 var batchDir=null;
-async function buildOutputs(f){
-  var base = MK.safeName(MK.stripExt(f.name))+(f.kind==='obj'?'_neu':''), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
-  for (var s=0;s<sets.length;s++){
-    var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
-    var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
-    if (S.mtl){
-      for (var i=0;i<r.materials.length;i++){
-        var m=r.materials[i], ov=f.override&&f.override[m.key], img=ov ? ov.img : f.tex[m.tex];
-        if (img && img.rgba && (S.paa || ov)){
-          var png = MK.safeName(MK.stripExt(MK.baseName(ov ? ov.name : m.tex)))+'.png';
-          m.image=png; m.hasAlpha=img.hasAlpha;
-          if (!pngDone[png]){ pngDone[png]=1; out.push({ name:png, data: await rgbaToPng(img) }); }
-        } else if (m.tex && m.tex.charAt(0)!=='#') missing++;
-      }
-      out.push({ name:nm+'.mtl', data:MK.buildMTL(r.materials, nm) });
-    }
-    out.push({ name:nm+'.obj', data:r.obj });
-  }
-  return { out:out, base:base, missing:missing };
-}
-
 async function convert(f, dirOverride){
   if (f.kind==='paa') return convertPaa(f, dirOverride);
   if (!f.model) return;
   f.status='busy'; render(); hxBurst(2500); hxProgress('compile '+f.name);
   try {
-    var res=await buildOutputs(f), out=res.out, base=res.base, missing=res.missing;
+    var base = MK.safeName(MK.stripExt(f.name))+(f.kind==='obj'?'_neu':''), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
+    for (var s=0;s<sets.length;s++){
+      var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
+      var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
+      if (S.mtl){
+        for (var i=0;i<r.materials.length;i++){
+          var m=r.materials[i], ov=f.override&&f.override[m.key], img=ov ? ov.img : f.tex[m.tex];
+          if (img && img.rgba && (S.paa || ov)){
+            var png = MK.safeName(MK.stripExt(MK.baseName(ov ? ov.name : m.tex)))+'.png';
+            m.image=png; m.hasAlpha=img.hasAlpha;
+            if (!pngDone[png]){ pngDone[png]=1; out.push({ name:png, data: await rgbaToPng(img) }); }
+          } else if (m.tex && m.tex.charAt(0)!=='#') missing++;
+        }
+        out.push({ name:nm+'.mtl', data:MK.buildMTL(r.materials, nm) });
+      }
+      out.push({ name:nm+'.obj', data:r.obj });
+    }
     if (mk && f.path){
       var dir = dirOverride || await outDir(f);
       if (!dir){ f.status='wait'; render(); log('Speichern abgebrochen'); return; }
       await mk.writeFiles(dir, out);
       f.out = dir;
       if (f===selected) $('openOut').disabled=false;
-      log('✓ '+f.name+' gespeichert'+(missing&&S.paa?' · '+missing+' Textur(en) fehlen':''), 'ok');
+      log('✓ '+f.name+' → '+out.filter(function(o){return /\.obj$/.test(o.name);}).map(function(o){return o.name;}).join(', ')+(missing&&S.paa?' · '+missing+' Textur(en) nicht gefunden':''), 'ok');
     } else {
       var blob = MK.makeZip(out), a=document.createElement('a');
       a.href=URL.createObjectURL(blob); a.download=base+'_obj.zip'; a.click();
@@ -1680,49 +1395,6 @@ async function convert(f, dirOverride){
     out.forEach(function(o){ hx('write '+o.name+' ('+(o.data.length||0)+' bytes) ✓'); });
   } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err, 'err'); hx('ERROR '+f.err,'e'); }
   render(); if (f===selected) showErr(f.err);
-}
-
-// ---------- Blender-Verbindung ----------
-var ADDON_SRC = "bl_info = {\n    \"name\": \"Melonenkonverter Bridge\",\n    \"author\": \"DevWasserMelone\",\n    \"version\": (1, 1, 0),\n    \"blender\": (3, 6, 0),\n    \"location\": \"3D-Ansicht > Seitenleiste (N) > Melone\",\n    \"description\": \"Holt Modelle aus dem Melonenkonverter automatisch mit Texturen in Blender\",\n    \"category\": \"Import-Export\",\n}\n\nimport bpy\nimport os\nimport json\nimport time\nimport math\n\nTIMER_INTERVAL = 1.0\n_state = {\"last\": \"\", \"count\": 0, \"error\": \"\"}\n\n\ndef default_dir():\n    return os.path.join(os.path.expanduser(\"~\"), \"Melonenkonverter-Blender\")\n\n\ndef prefs():\n    try:\n        return bpy.context.preferences.addons[__name__].preferences\n    except Exception:\n        return None\n\n\ndef bridge_dir():\n    p = prefs()\n    d = (p.bridge_dir if p and p.bridge_dir else default_dir())\n    return bpy.path.abspath(d)\n\n\nclass MELONE_Prefs(bpy.types.AddonPreferences):\n    bl_idname = __name__\n\n    bridge_dir: bpy.props.StringProperty(\n        name=\"Verbindungsordner\",\n        description=\"Muss derselbe Ordner sein wie im Melonenkonverter unter Blender\",\n        subtype=\"DIR_PATH\",\n        default=default_dir(),\n    )\n    auto_import: bpy.props.BoolProperty(name=\"Automatisch importieren\", default=True)\n    smooth: bpy.props.BoolProperty(name=\"Gl\u00e4tten (Auto Smooth)\", default=True)\n    own_collection: bpy.props.BoolProperty(name=\"Eigene Collection pro Modell\", default=True)\n    focus: bpy.props.BoolProperty(name=\"Ansicht auf Modell zentrieren\", default=True)\n    show_textures: bpy.props.BoolProperty(name=\"Texturen in der Ansicht zeigen\", default=True)\n\n    def draw(self, context):\n        col = self.layout.column()\n        col.prop(self, \"bridge_dir\")\n        col.prop(self, \"auto_import\")\n        col.prop(self, \"smooth\")\n        col.prop(self, \"own_collection\")\n        col.prop(self, \"focus\")\n        col.prop(self, \"show_textures\")\n\n\n# ---------- Import ----------\n\ndef find_view3d():\n    wm = bpy.context.window_manager\n    for win in wm.windows:\n        for area in win.screen.areas:\n            if area.type == \"VIEW_3D\":\n                for region in area.regions:\n                    if region.type == \"WINDOW\":\n                        return win, area, region\n    win = wm.windows[0] if wm.windows else None\n    return win, None, None\n\n\ndef run_op(op, **kw):\n    win, area, region = find_view3d()\n    if win is None:\n        return op(**kw)\n    ctx = {\"window\": win, \"screen\": win.screen}\n    if area:\n        ctx[\"area\"] = area\n        ctx[\"region\"] = region\n    with bpy.context.temp_override(**ctx):\n        return op(**kw)\n\n\ndef pending_jobs():\n    root = bridge_dir()\n    jobs = []\n    if not os.path.isdir(root):\n        return jobs\n    for name in os.listdir(root):\n        d = os.path.join(root, name)\n        info = os.path.join(d, \"melone.json\")\n        if os.path.isdir(d) and os.path.isfile(info) and not os.path.exists(os.path.join(d, \".importiert\")):\n            jobs.append((os.path.getmtime(info), d, info))\n    jobs.sort()\n    return jobs\n\n\ndef make_smooth(objs):\n    for o in objs:\n        if o.type != \"MESH\":\n            continue\n        me = o.data\n        try:\n            me.shade_smooth()\n        except Exception:\n            me.polygons.foreach_set(\"use_smooth\", [True] * len(me.polygons))\n        if hasattr(me, \"use_auto_smooth\"):\n            me.use_auto_smooth = True\n            me.auto_smooth_angle = math.radians(40)\n        else:\n            try:\n                bpy.ops.object.select_all(action=\"DESELECT\")\n            except Exception:\n                pass\n            try:\n                with bpy.context.temp_override(object=o, active_object=o, selected_objects=[o], selected_editable_objects=[o]):\n                    bpy.ops.object.shade_auto_smooth(angle=math.radians(40))\n            except Exception:\n                pass\n\n\ndef read_mtl_maps(folder):\n    \"\"\"Materialname -> Texturdatei aus allen .mtl im Ordner\"\"\"\n    maps, alpha = {}, set()\n    for f in os.listdir(folder):\n        if not f.lower().endswith(\".mtl\"):\n            continue\n        cur = None\n        with open(os.path.join(folder, f), \"r\", encoding=\"utf-8\", errors=\"ignore\") as fh:\n            for line in fh:\n                t = line.strip()\n                if t.startswith(\"newmtl \"):\n                    cur = t[7:].strip()\n                elif cur and t.lower().startswith(\"map_kd \"):\n                    maps[cur] = t[7:].strip().split()[-1]\n                elif cur and t.lower().startswith(\"map_d \"):\n                    alpha.add(cur)\n    return maps, alpha\n\n\ndef base_name(name):\n    # Blender h\u00e4ngt bei doppelten Namen .001 usw. an\n    if len(name) > 4 and name[-4] == \".\" and name[-3:].isdigit():\n        return name[:-4]\n    return name\n\n\ndef fix_materials(objs, folder):\n    \"\"\"Sorgt daf\u00fcr, dass jede Textur wirklich an Base Color h\u00e4ngt und Transparenz funktioniert\"\"\"\n    maps, alpha_mats = read_mtl_maps(folder)\n    done = set()\n    for o in objs:\n        for slot in getattr(o, \"material_slots\", []):\n            mat = slot.material\n            if not mat or mat.name in done:\n                continue\n            done.add(mat.name)\n            tex_file = maps.get(base_name(mat.name))\n            if not tex_file:\n                continue\n            path = os.path.join(folder, tex_file)\n            if not os.path.isfile(path):\n                continue\n            mat.use_nodes = True\n            nt = mat.node_tree\n            bsdf = next((n for n in nt.nodes if n.type == \"BSDF_PRINCIPLED\"), None)\n            if bsdf is None:\n                bsdf = nt.nodes.new(\"ShaderNodeBsdfPrincipled\")\n                out = next((n for n in nt.nodes if n.type == \"OUTPUT_MATERIAL\"), None) or nt.nodes.new(\"ShaderNodeOutputMaterial\")\n                nt.links.new(bsdf.outputs[0], out.inputs[0])\n            base = bsdf.inputs.get(\"Base Color\")\n            img_node = None\n            if base and base.is_linked and base.links[0].from_node.type == \"TEX_IMAGE\":\n                img_node = base.links[0].from_node\n            if img_node is None:\n                img_node = nt.nodes.new(\"ShaderNodeTexImage\")\n                img_node.location = (bsdf.location.x - 320, bsdf.location.y)\n                if base:\n                    nt.links.new(img_node.outputs[\"Color\"], base)\n            if img_node.image is None:\n                try:\n                    img_node.image = bpy.data.images.load(path, check_existing=True)\n                except Exception:\n                    continue\n            # Transparenz nur, wenn das Bild wirklich einen Alphakanal hat\n            has_alpha = base_name(mat.name) in alpha_mats\n            alpha_in = bsdf.inputs.get(\"Alpha\")\n            if has_alpha and alpha_in is not None:\n                if not alpha_in.is_linked:\n                    nt.links.new(img_node.outputs[\"Alpha\"], alpha_in)\n                if hasattr(mat, \"surface_render_method\"):\n                    mat.surface_render_method = \"DITHERED\"\n                elif hasattr(mat, \"blend_method\"):\n                    mat.blend_method = \"HASHED\"\n                    if hasattr(mat, \"shadow_method\"):\n                        mat.shadow_method = \"HASHED\"\n            elif alpha_in is not None and alpha_in.is_linked:\n                for l in list(alpha_in.links):\n                    nt.links.remove(l)\n                alpha_in.default_value = 1.0\n            # in der Solid-Ansicht dieselbe Textur zeigen\n            nt.nodes.active = img_node\n\n\ndef show_textures_in_viewport():\n    for win in bpy.context.window_manager.windows:\n        for area in win.screen.areas:\n            if area.type != \"VIEW_3D\":\n                continue\n            for space in area.spaces:\n                if space.type == \"VIEW_3D\" and space.shading.type == \"SOLID\":\n                    space.shading.color_type = \"TEXTURE\"\n\n\ndef import_job(folder, info_path):\n    p = prefs()\n    with open(info_path, \"r\", encoding=\"utf-8\") as fh:\n        info = json.load(fh)\n    name = info.get(\"name\", os.path.basename(folder))\n    files = info.get(\"obj\") or [f for f in os.listdir(folder) if f.lower().endswith(\".obj\")]\n    if isinstance(files, str):\n        files = [files]\n    before = set(bpy.data.objects)\n    for f in files:\n        path = os.path.join(folder, f)\n        if hasattr(bpy.ops.wm, \"obj_import\"):\n            run_op(bpy.ops.wm.obj_import, filepath=path, forward_axis=\"NEGATIVE_Z\", up_axis=\"Y\")\n        else:\n            run_op(bpy.ops.import_scene.obj, filepath=path, axis_forward=\"-Z\", axis_up=\"Y\")\n    new = [o for o in bpy.data.objects if o not in before]\n\n    if p is None or p.own_collection:\n        col = bpy.data.collections.new(name)\n        bpy.context.scene.collection.children.link(col)\n        for o in new:\n            for c in list(o.users_collection):\n                c.objects.unlink(o)\n            col.objects.link(o)\n\n    if p is None or p.smooth:\n        make_smooth(new)\n\n    try:\n        fix_materials(new, folder)\n    except Exception as e:\n        _state[\"error\"] = \"Texturen: \" + str(e)\n    if p is None or p.show_textures:\n        try:\n            show_textures_in_viewport()\n        except Exception:\n            pass\n\n    try:\n        for o in bpy.context.view_layer.objects:\n            o.select_set(False)\n        for o in new:\n            o.select_set(True)\n        if new:\n            bpy.context.view_layer.objects.active = new[0]\n        if (p is None or p.focus) and new:\n            run_op(bpy.ops.view3d.view_selected)\n    except Exception:\n        pass\n\n    open(os.path.join(folder, \".importiert\"), \"w\").close()\n    _state[\"last\"] = name\n    _state[\"count\"] += 1\n    if not _state[\"error\"].startswith(\"Texturen\"):\n        _state[\"error\"] = \"\"\n    return name, len(new)\n\n\ndef poll_timer():\n    p = prefs()\n    if p is None or not p.auto_import:\n        return TIMER_INTERVAL\n    try:\n        for _, folder, info in pending_jobs():\n            # kurz warten, falls der Konverter noch schreibt\n            if time.time() - os.path.getmtime(info) < 0.5:\n                continue\n            import_job(folder, info)\n    except Exception as e:\n        _state[\"error\"] = str(e)\n    return TIMER_INTERVAL\n\n\n# ---------- Bedienung ----------\n\nclass MELONE_OT_import_now(bpy.types.Operator):\n    bl_idname = \"melone.import_now\"\n    bl_label = \"Jetzt importieren\"\n    bl_description = \"Alle neuen Modelle aus dem Melonenkonverter importieren\"\n\n    def execute(self, context):\n        jobs = pending_jobs()\n        if not jobs:\n            self.report({\"INFO\"}, \"Keine neuen Modelle\")\n            return {\"FINISHED\"}\n        for _, folder, info in jobs:\n            try:\n                name, n = import_job(folder, info)\n                self.report({\"INFO\"}, \"Importiert: %s (%d Objekte)\" % (name, n))\n            except Exception as e:\n                self.report({\"ERROR\"}, str(e))\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_reimport_last(bpy.types.Operator):\n    bl_idname = \"melone.reimport_last\"\n    bl_label = \"Letztes erneut laden\"\n    bl_description = \"Das zuletzt gesendete Modell noch einmal importieren\"\n\n    def execute(self, context):\n        root = bridge_dir()\n        if not os.path.isdir(root):\n            self.report({\"WARNING\"}, \"Verbindungsordner nicht gefunden\")\n            return {\"CANCELLED\"}\n        cands = [os.path.join(root, d) for d in os.listdir(root) if os.path.isfile(os.path.join(root, d, \"melone.json\"))]\n        if not cands:\n            self.report({\"INFO\"}, \"Noch nichts gesendet\")\n            return {\"CANCELLED\"}\n        last = max(cands, key=lambda d: os.path.getmtime(os.path.join(d, \"melone.json\")))\n        name, n = import_job(last, os.path.join(last, \"melone.json\"))\n        self.report({\"INFO\"}, \"Importiert: %s\" % name)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_open_folder(bpy.types.Operator):\n    bl_idname = \"melone.open_folder\"\n    bl_label = \"Ordner \u00f6ffnen\"\n\n    def execute(self, context):\n        d = bridge_dir()\n        os.makedirs(d, exist_ok=True)\n        bpy.ops.wm.path_open(filepath=d)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_cleanup(bpy.types.Operator):\n    bl_idname = \"melone.cleanup\"\n    bl_label = \"Alte Sendungen l\u00f6schen\"\n    bl_description = \"Bereits importierte Modelle aus dem Verbindungsordner entfernen (nicht aus der Szene)\"\n\n    def execute(self, context):\n        import shutil\n        root, n = bridge_dir(), 0\n        if os.path.isdir(root):\n            for d in os.listdir(root):\n                full = os.path.join(root, d)\n                if os.path.isdir(full) and os.path.exists(os.path.join(full, \".importiert\")):\n                    shutil.rmtree(full, ignore_errors=True)\n                    n += 1\n        self.report({\"INFO\"}, \"%d alte Sendungen gel\u00f6scht\" % n)\n        return {\"FINISHED\"}\n\n\nclass MELONE_OT_show_textures(bpy.types.Operator):\n    bl_idname = \"melone.show_textures\"\n    bl_label = \"Texturen anzeigen\"\n    bl_description = \"Schaltet die 3D-Ansicht so, dass Texturen sichtbar sind\"\n\n    def execute(self, context):\n        show_textures_in_viewport()\n        return {\"FINISHED\"}\n\n\nclass MELONE_PT_panel(bpy.types.Panel):\n    bl_label = \"Melonenkonverter\"\n    bl_space_type = \"VIEW_3D\"\n    bl_region_type = \"UI\"\n    bl_category = \"Melone\"\n\n    def draw(self, context):\n        p = prefs()\n        lay = self.layout\n        ok = os.path.isdir(bridge_dir())\n        box = lay.box()\n        box.label(text=\"Verbunden\" if ok else \"Wartet auf Konverter \u2026\", icon=\"LINKED\" if ok else \"UNLINKED\")\n        if _state[\"last\"]:\n            box.label(text=\"Zuletzt: \" + _state[\"last\"], icon=\"IMPORT\")\n        if _state[\"error\"]:\n            box.label(text=_state[\"error\"][:60], icon=\"ERROR\")\n        if p:\n            lay.prop(p, \"auto_import\")\n            lay.prop(p, \"smooth\")\n            lay.prop(p, \"own_collection\")\n            lay.prop(p, \"show_textures\")\n        lay.operator(\"melone.import_now\", icon=\"IMPORT\")\n        lay.operator(\"melone.reimport_last\", icon=\"FILE_REFRESH\")\n        lay.operator(\"melone.show_textures\", icon=\"TEXTURE\")\n        row = lay.row(align=True)\n        row.operator(\"melone.open_folder\", icon=\"FILE_FOLDER\")\n        row.operator(\"melone.cleanup\", icon=\"TRASH\", text=\"\")\n        if p:\n            lay.prop(p, \"bridge_dir\", text=\"\")\n\n\nclasses = (MELONE_Prefs, MELONE_OT_show_textures, MELONE_OT_import_now, MELONE_OT_reimport_last, MELONE_OT_open_folder, MELONE_OT_cleanup, MELONE_PT_panel)\n\n\ndef register():\n    for c in classes:\n        bpy.utils.register_class(c)\n    if not bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.register(poll_timer, first_interval=2.0, persistent=True)\n\n\ndef unregister():\n    if bpy.app.timers.is_registered(poll_timer):\n        bpy.app.timers.unregister(poll_timer)\n    for c in reversed(classes):\n        bpy.utils.unregister_class(c)\n\n\nif __name__ == \"__main__\":\n    register()\n";
-async function bridgeRoot(){
-  if (mk && mk.bridgeDir) return await mk.bridgeDir();
-  if (!S.bridgeDir){
-    toast('Wähle einmal den Verbindungsordner. Im Blender-Add-on muss derselbe Ordner eingestellt sein.');
-    var d=await mk.pickFolder(); if (!d) return null; S.bridgeDir=d; save(); applyUI();
-  }
-  return S.bridgeDir;
-}
-async function sendToBlender(f){
-  if (!mk){ toast('„An Blender senden“ geht nur im Programm, nicht im Browser.','err'); return; }
-  if (!f || !f.model){ toast('Wähle zuerst links ein Modell aus.','err'); return; }
-  if (!S.blSetup) openGuide();
-  var root=await bridgeRoot(); if (!root) return;
-  f.status='busy'; render(); hxBurst(2000); hxProgress('bridge '+f.name);
-  try {
-    var r=await buildOutputs(f), sep=root.indexOf('\\')>=0?'\\':'/';
-    var stamp=new Date().toISOString().replace(/[-:T.Z]/g,'').slice(0,14);
-    var dir=root+sep+r.base+'_'+stamp;
-    var objs=r.out.filter(function(o){ return /\.obj$/.test(o.name); }).map(function(o){ return o.name; });
-    await mk.writeFiles(dir, r.out);
-    await mk.writeFiles(dir, [{ name:'melone.json', data: JSON.stringify({ name:r.base, obj:objs, source:f.name, created:new Date().toISOString() }) }]);
-    f.status='ok'; f.err='';
-    toast('An Blender gesendet: '+f.name+(r.missing?' · '+r.missing+' Textur(en) fehlen':''),'ok');
-    hx('bridge → blender '+dir+' ✓');
-  } catch(e){ f.status='err'; f.err=clean(e); toast('Senden fehlgeschlagen: '+f.err,'err'); hx('ERROR '+f.err,'e'); }
-  render();
-}
-async function saveAddon(){
-  var name='melonenkonverter_blender.py';
-  if (mk){
-    toast('Wähle den Ordner, in dem das Add-on gespeichert werden soll (z. B. Downloads).');
-    var d=await mk.pickFolder(); if (!d) return null;
-    await mk.writeFiles(d,[{ name:name, data:ADDON_SRC }]);
-    mk.openFolder(d);
-    return d+(d.indexOf('\\')>=0?'\\':'/')+name;
-  } else {
-    var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([ADDON_SRC],{type:'text/x-python'})); a.download=name; a.click();
-    return 'Download-Ordner deines Browsers';
-  }
 }
 
 async function outDir(f){
@@ -1741,77 +1413,11 @@ async function outDir(f){
 
 $('convertAll').onclick = async function(){
   var todo=files.filter(function(f){ return f.checked && (f.model || f.img); });
-  if (!todo.length) return;
-  var btn=this; btn.disabled=true; batchDir=null; quiet=true;
-  for (var i=0;i<todo.length;i++){ btn.textContent=(i+1)+' / '+todo.length+' …'; await convert(todo[i]); }
-  quiet=false; batchDir=null; render();
-  var bad=todo.filter(function(f){ return f.status==='err'; }).length;
-  log((bad?'✗ ':'✓ ')+(todo.length-bad)+' von '+todo.length+' Datei(en) umgewandelt'+(bad?' · '+bad+' mit Fehler':''), bad?'err':'ok'); hx(todo.length+' Datei(en) fertig ✓');
+  batchDir=null;
+  for (var i=0;i<todo.length;i++) await convert(todo[i]);
+  batchDir=null;
+  log('✓ '+todo.length+' Datei(en) umgewandelt', 'ok'); hx(todo.length+' Datei(en) fertig ✓');
 };
-$('toBlender').onclick = function(){ sendToBlender(selected); };
-function openGuide(){ $('gSaved').textContent=''; $('blGuide').classList.add('on'); }
-$('addonBtn').onclick = openGuide;
-$('blHead').onclick = openGuide;
-$('gClose').onclick = function(){ $('blGuide').classList.remove('on'); };
-$('gDone').onclick = function(){ S.blSetup=true; save(); $('blGuide').classList.remove('on'); toast('Blender ist eingerichtet. Mit „An Blender“ oder Strg + B schickst du Modelle rüber.','ok',5000); };
-$('blGuide').onclick = function(e){ if (e.target===this) this.classList.remove('on'); };
-$('gSave').onclick = async function(){
-  var b=this; b.disabled=true;
-  try { var where=await saveAddon(); if (where) $('gSaved').textContent='✓ Gespeichert: '+where; }
-  catch(e){ $('gSaved').textContent='Fehler: '+clean(e); }
-  b.disabled=false;
-};
-$('bridgePick').onclick = async function(){ var d=await mk.pickFolder(); if (d){ S.bridgeDir=d; save(); applyUI(); } };
-$('helpBtn').onclick = function(){ $('help').classList.add('on'); };
-$('helpClose').onclick = function(){ $('help').classList.remove('on'); };
-$('help').onclick = function(e){ if (e.target===this) this.classList.remove('on'); };
-
-// ---------- Rechtsklick-Menü ----------
-function ctxMenu(f, x, y){
-  var c=$('ctx'); c.innerHTML='';
-  function item(label, fn, ok){ var d=document.createElement('div'); d.textContent=label; if (ok===false) d.className='dis'; d.onclick=function(){ c.style.display='none'; fn(); }; c.appendChild(d); }
-  var ready2=!!(f.model||f.img);
-  item('Umwandeln', function(){ batchDir=null; convert(f); }, ready2);
-  if (mk) item('Speichern unter …', async function(){ var d=await mk.pickFolder(); if (d) convert(f, d); }, ready2);
-  if (mk) item('An Blender senden', function(){ sendToBlender(f); }, !!f.model);
-  c.appendChild(document.createElement('hr'));
-  item(f.checked?'Haken entfernen':'Anhaken', function(){ f.checked=!f.checked; render(); }, ready2);
-  if (mk && f.path) item('Im Explorer zeigen', function(){ if (mk.showItem) mk.showItem(f.path); else mk.openFolder(f.path.replace(/[\\\/][^\\\/]*$/,'')); });
-  if (mk && f.out) item('Zielordner öffnen', function(){ mk.openFolder(f.out); });
-  c.appendChild(document.createElement('hr'));
-  item('Aus der Liste entfernen', function(){ removeFile(f); });
-  c.style.display='block';
-  var w=c.offsetWidth, h=c.offsetHeight;
-  c.style.left=Math.min(x, innerWidth-w-6)+'px'; c.style.top=Math.min(y, innerHeight-h-6)+'px';
-}
-document.addEventListener('mousedown',function(e){ if (!$('ctx').contains(e.target)) $('ctx').style.display='none'; });
-function removeFile(f){
-  var vis=visible(), i=vis.indexOf(f);
-  files.splice(files.indexOf(f),1);
-  if (selected===f){ var nx=vis[i+1]||vis[i-1]||null; select(nx && files.indexOf(nx)>=0 ? nx : null); }
-  render();
-}
-
-// ---------- Tastenkürzel ----------
-window.addEventListener('keydown',function(e){
-  if (e.key==='F1'){ e.preventDefault(); $('help').classList.toggle('on'); return; }
-  if (e.key==='Escape' && ($('help').classList.contains('on')||$('blGuide').classList.contains('on')||$('aiDlg').classList.contains('on'))){ $('help').classList.remove('on'); $('blGuide').classList.remove('on'); $('aiDlg').classList.remove('on'); return; }
-  if (tb.open || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-  var k=e.key.toLowerCase();
-  if (e.ctrlKey && k==='o'){ e.preventDefault(); drop.onclick(); }
-  else if (e.ctrlKey && e.shiftKey && e.key==='Enter'){ e.preventDefault(); $('convertAll').click(); }
-  else if (e.ctrlKey && e.key==='Enter'){ e.preventDefault(); if (selected){ batchDir=null; convert(selected); } }
-  else if (e.ctrlKey && k==='b'){ e.preventDefault(); sendToBlender(selected); }
-  else if (e.ctrlKey && k==='a'){ e.preventDefault(); $('selAll').checked=true; $('selAll').onchange(); }
-  else if (e.key==='Delete' && selected){ e.preventDefault(); removeFile(selected); }
-  else if (e.key==='ArrowDown' || e.key==='ArrowUp'){
-    var vis=visible().filter(function(f){ return !(S.closed||{})[f.kind||'p3d']; }); if (!vis.length) return;
-    e.preventDefault();
-    var i=vis.indexOf(selected); i = e.key==='ArrowDown' ? Math.min(vis.length-1,i+1) : Math.max(0,(i<0?vis.length:i)-1);
-    select(vis[i]); var el=$('list').querySelector('.item.sel'); if (el) el.scrollIntoView({block:'nearest'});
-  }
-  else if (e.key===' ' && selected && (selected.model||selected.img)){ e.preventDefault(); selected.checked=!selected.checked; render(); }
-});
 $('convertOne').onclick = function(){ if (selected){ batchDir=null; convert(selected); } };
 $('saveAs').onclick = async function(){ if (!selected || !mk) return; var d=await mk.pickFolder(); if (d) convert(selected, d); };
 $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFolder(selected.out); };
@@ -1850,9 +1456,8 @@ function render(){
       cb.onclick=function(ev){ ev.stopPropagation(); f.checked=this.checked; render(); };
       d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
       d.onclick=function(){ select(f); };
-      d.oncontextmenu=function(ev){ ev.preventDefault(); select(f); ctxMenu(f, ev.clientX, ev.clientY); };
       if (f.img){ d.draggable=true; d.ondragstart=function(ev){ ev.dataTransfer.setData('text/mk-tex', f.id); ev.dataTransfer.effectAllowed='copy'; }; d.title+='\nAuf das Modell ziehen, um die Textur zuzuweisen'; }
-      d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); removeFile(f); };
+      d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
       L.appendChild(d);
     });
   });
@@ -1875,7 +1480,6 @@ function select(f){
   $('convertOne').disabled = !(f && (f.model || f.img));
   $('openOut').disabled = !(f && f.out && mk);
   $('saveAs').disabled = !(f && (f.model || f.img) && mk);
-  $('toBlender').disabled = !(f && f.model);
   showImage(f && f.img ? f : null);
   if (!f || !f.model) renderMats(null);
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
@@ -1929,8 +1533,7 @@ function renderMats(f, li){
     var n=document.createElement('div'); n.className='mn'; n.textContent=m.name;
     var st=document.createElement('div'); st.className='ms';
     var state=document.createElement('span');
-    if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name+(ov.variant>1?' (1 von '+ov.variant+' Farben – klicken zum Wechseln)':''); }
-    else if (ov && ov.ai){ state.className='ok'; state.textContent='✨ '+ov.name; }
+    if (ov && ov.auto){ state.className='au'; state.textContent='≈ automatisch: '+ov.name; }
     else if (ov){ state.className='ok'; state.textContent='✓ '+ov.name; }
     else if (img && img.rgba){ state.className='ok'; state.textContent='✓ Textur gefunden'; }
     else if (m.color){ state.textContent='Farbe'; }
@@ -1938,8 +1541,7 @@ function renderMats(f, li){
     else { state.className='no'; state.textContent='ohne Textur'; }
     var b=document.createElement('button'); b.textContent= ov ? 'ändern' : 'zuweisen'; b.title='Textur für dieses Teil wählen (PAA, PNG, JPG …)';
     b.onclick=function(){ texTarget={f:f,key:m.key}; $('texIn').click(); };
-    var ai=document.createElement('button'); ai.textContent='✨ KI'; ai.title='Textur per Prompt von der KI erstellen lassen'; ai.onclick=function(){ openAI(f, m); };
-    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b); st.appendChild(ai);
+    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b);
     if (ov){ var x=document.createElement('button'); x.textContent='✕'; x.title='Zuweisung entfernen'; x.onclick=function(){ delete f.override[m.key]; refreshView(); }; st.appendChild(x); }
     info.appendChild(n); info.appendChild(st);
     d.title=(m.tex||'keine Textur im Modell')+(m.mat?'\n'+m.mat:'')+'\nKlicken zum Durchsuchen';
@@ -1981,10 +1583,10 @@ $('texIn').onchange=async function(){
 // ---------- Texturen-Sammlung, automatische Suche, Textur-Browser ----------
 var lib=[], libKeys={};
 function isTexName(n){ return /\.(paa|pac|png|jpe?g|bmp|webp)$/i.test(n); }
-function libAdd(en, user){
+function libAdd(en){
   var k=(en.path||('datei:'+en.name+':'+(en.file?en.file.size:''))).toLowerCase();
-  if (libKeys[k]){ if (user) libKeys[k].user=true; return libKeys[k]; }
-  var it={ name:en.name, en:en, thumb:null, img:null, user:!!user }; libKeys[k]=it; lib.push(it); return it;
+  if (libKeys[k]) return libKeys[k];
+  var it={ name:en.name, en:en, thumb:null, img:null }; libKeys[k]=it; lib.push(it); return it;
 }
 async function libFor(f){
   if (mk && f && f.path && mk.listTextures && !f.libDone){
@@ -1992,7 +1594,7 @@ async function libFor(f){
     try { var ps=await mk.listTextures(f.path, 2); ps.forEach(function(p){ libAdd({ name:p.split(/[\\\/]/).pop(), path:p }); }); hx('scan textures · '+ps.length+' found'); }
     catch(e){ hx('scan textures failed','w'); }
   }
-  Object.keys(paaPool).forEach(function(k){ if (isTexName(k)) libAdd(paaPool[k], true); });
+  Object.keys(paaPool).forEach(function(k){ if (isTexName(k)) libAdd(paaPool[k]); });
   return lib;
 }
 async function libImg(it){
@@ -2026,16 +1628,6 @@ async function autoAssign(f){
         f.override=f.override||{}; f.override[m.key]={ img:img, name:r[0].it.name, auto:true };
         hx('auto-match '+m.name+' → '+r[0].it.name+' (score '+r[0].s+')');
       } catch(e){ hx('auto-match '+r[0].it.name+' unlesbar','w'); }
-    } else if (!m.tex && r[0].s>=12 && !MK.isBadMap(r[0].it.name)){
-      // Teil ohne Textur im Modell (Farbvariante, wird im Spiel per Config gesetzt):
-      // passende Farbvariante nehmen, Schwarz bevorzugen – im Browser umschaltbar
-      var top=r.filter(function(x){ return x.s===r[0].s && !MK.isBadMap(x.it.name); });
-      top.sort(function(a,b){ function pr(n){ n=n.toLowerCase(); return /(^|_)(blk|black|schwarz)(_|$)/.test(n)?0:1; } return pr(a.it.name)-pr(b.it.name) || a.it.name.localeCompare(b.it.name); });
-      try {
-        var img2=await libImg(top[0].it);
-        f.override=f.override||{}; f.override[m.key]={ img:img2, name:top[0].it.name, auto:true, variant:top.length };
-        hx('auto-match '+m.name+' → '+top[0].it.name+' (1 von '+top.length+' Varianten)');
-      } catch(e){}
     } else hx('auto-match '+m.name+' → kein sicherer Treffer','w');
   }
 }
@@ -2048,7 +1640,7 @@ async function openTB(f, m){
   viewer.highlight(m.key,true);
   $('tbStrip').innerHTML='<div class="tbempty">Texturen werden gesucht …</div>';
   await libFor(f);
-  tb.list=ranked(f,m,lib.filter(function(it){ return it.user; }));
+  tb.list=ranked(f,m,lib);
   fillTB();
 }
 function fillTB(){
@@ -2057,7 +1649,7 @@ function fillTB(){
   var cur=tb.f.override && tb.f.override[tb.m.key];
   tb.idx=-1;
   if (!tb.shown.length){
-    S2.innerHTML='<div class="tbempty">'+(tb.list.length?'Keine Treffer.':'Noch keine Texturen. Zieh PAA- oder PNG-Dateien ins Fenster oder füge mit <b>📁 Ordner</b> einen Texturordner hinzu.')+'</div>';
+    S2.innerHTML='<div class="tbempty">'+(lib.length?'Keine Treffer.':'Keine Texturen gefunden. Klick auf <b>📁 Ordner</b>, um einen Ordner mit Texturen hinzuzufügen (z. B. deinen Mod-Ordner), oder zieh PAA/PNG-Dateien ins Fenster.')+'</div>';
     updTBCount(); return;
   }
   var tok=++tb.token;
@@ -2112,9 +1704,9 @@ $('tbCancel').onclick=function(){ closeTB(false); };
 $('tbSearch').oninput=fillTB;
 $('tbFolder').onclick=function(){ $('tbDir').click(); };
 $('tbDir').onchange=function(){
-  var n=0; Array.from(this.files).forEach(function(file){ if (!isTexName(file.name)) return; n++; var p=mk && mk.pathForFile ? mk.pathForFile(file) : ''; libAdd(p ? { name:file.name, path:p } : { name:file.name, file:file }, true); });
+  var n=0; Array.from(this.files).forEach(function(file){ if (!isTexName(file.name)) return; n++; var p=mk && mk.pathForFile ? mk.pathForFile(file) : ''; libAdd(p ? { name:file.name, path:p } : { name:file.name, file:file }); });
   this.value=''; hx('library +'+n+' textures'); log(n+' Texturen hinzugefügt','ok');
-  if (tb.open){ tb.list=ranked(tb.f,tb.m,lib.filter(function(it){ return it.user; })); fillTB(); }
+  if (tb.open){ tb.list=ranked(tb.f,tb.m,lib); fillTB(); }
 };
 window.addEventListener('keydown',function(e){
   if (!tb.open) return;
@@ -2125,159 +1717,6 @@ window.addEventListener('keydown',function(e){
   else if (e.key==='Enter'){ e.preventDefault(); closeTB(true); }
 });
 $('tbStrip').addEventListener('wheel',function(e){ if (Math.abs(e.deltaY)>Math.abs(e.deltaX)){ e.preventDefault(); this.scrollLeft+=e.deltaY; } },{passive:false});
-
-// ---------- KI-Texturen (Gemini) ----------
-$('aiKey').value=S.aiKey||''; $('aiModel').value=S.aiModel; $('aiSource').value=S.aiSource;
-var SRC_TXT={ builtin:'Eingebauter Generator: offline und unbegrenzt, aber nur einfache Muster. Kann Stoff, Tarnmuster (Woodland, Multicam, Flecktarn, Digital), Metall, Holz, Leder, Rost, Carbon, Beton, Gummi, Plastik + Farben und „abgenutzt“, „Kratzer“, „dreckig“.',
-  polli:'Online-KI (Pollinations, Modell Flux): gratis und ohne Konto, echte KI-Bilder. Ohne Konto max. 1 Bild alle 15 Sekunden – mehrere Teile werden automatisch nacheinander erstellt.',
-  gemini:'Googles Gemini-Bild-KI: beste Ergebnisse, braucht aber einen eigenen Schlüssel und kostet je nach Konto Geld.' };
-function srcUI(){ $('gemBox').style.display=S.aiSource==='gemini'?'block':'none'; $('aiSrcHint').textContent=SRC_TXT[S.aiSource]; }
-srcUI();
-$('aiSource').onchange=function(){ S.aiSource=this.value; save(); srcUI(); };
-$('aiKey').onchange=function(){ S.aiKey=this.value.trim(); save(); };
-$('aiModel').onchange=function(){ S.aiModel=this.value; save(); };
-var ai={ f:null, m:null, busy:false, n:0 };
-function openAI(f, m){
-  ai.f=f; ai.m=m;
-  $('aiMat').textContent=m.name; $('aiMsg').textContent=''; $('aiOut').style.display='none';
-  $('aiPrompt').value = (f.aiPrompts && f.aiPrompts[m.key]) || '';
-  $('aiDlg').classList.add('on'); setTimeout(function(){ $('aiPrompt').focus(); }, 50);
-  $('aiSrcLine').textContent={ builtin:'Eingebauter Generator · gratis · unbegrenzt', polli:'Online-KI · gratis · 1 Bild alle 15 Sekunden', gemini:'Gemini · eigener Schlüssel' }[S.aiSource];
-  $('aiUVRow').style.display = S.aiSource==='gemini' ? '' : 'none';
-  var miss=missingMats(f).filter(function(x){ return x.key!==m.key; });
-  $('aiAllRow').style.display = miss.length ? '' : 'none'; $('aiAll').checked=false;
-  $('aiAllInfo').textContent = miss.length ? 'Gleicher Prompt, zusätzlich für '+miss.length+' weitere'+(miss.length===1?'s Teil':' Teile')+' – passend nach Teilname' : '';
-  if (S.aiSource==='gemini' && !S.aiKey) $('aiMsg').innerHTML='<span style="color:var(--yellow)">Trag zuerst rechts unter <b>Texturen erstellen</b> deinen Gemini-API-Schlüssel ein – oder stell die Quelle auf „Eingebaut“.</span>';
-}
-$('aiClose').onclick=function(){ $('aiDlg').classList.remove('on'); };
-$('aiPrompt').onkeydown=function(e){ if (e.key==='Enter' && (e.ctrlKey||!e.shiftKey)){ e.preventDefault(); $('aiGo').click(); } };
-function uvLayout(f, key, size){
-  var li=f.lodPick!=null?f.lodPick:MK.defaultLod(f.model), lod=f.model.lods[li];
-  var c=document.createElement('canvas'); c.width=c.height=size; var g=c.getContext('2d');
-  g.fillStyle='#000'; g.fillRect(0,0,size,size); g.strokeStyle='#fff'; g.lineWidth=Math.max(1,size/700); g.beginPath();
-  lod.faces.forEach(function(fc){ if (MK.materialKey(fc)!==key) return;
-    var v=fc.v; for (var i=0;i<v.length;i++){ var a=v[i], b=v[(i+1)%v.length];
-      var ax=((a.u%1)+1)%1*size, ay=((a.v%1)+1)%1*size, bx=((b.u%1)+1)%1*size, by=((b.v%1)+1)%1*size;
-      if (Math.abs(ax-bx)>size/2||Math.abs(ay-by)>size/2) continue; g.moveTo(ax,ay); g.lineTo(bx,by); } });
-  g.stroke();
-  return c.toDataURL('image/png').split(',')[1];
-}
-function b64ToU8(b64){ var bin=atob(b64), u8=new Uint8Array(bin.length); for (var i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); return u8; }
-function texPromptEN(prompt, seamless, useUV){
-  return 'Create a texture map image (albedo / base color only) for a 3D game model. '+
-    'Flat, top-down, evenly lit, no perspective, no shadows, no lighting, no reflections, no visible objects, no text, no watermark, no border or frame. '+
-    'The material must fill the whole square image edge to edge. '+
-    (seamless?'The texture must tile seamlessly: the left edge must continue on the right edge and the top on the bottom. ':'')+
-    (useUV?'The attached black image with white lines is the UV layout of this model part. Paint the texture so it fits inside these UV areas, but do NOT draw the white lines themselves and keep the background filled with the material. ':'')+
-    'Description of the material (may be German): '+prompt;
-}
-async function genBuiltin(prompt, size){
-  await new Promise(function(r){ setTimeout(r, 30); });
-  var img=TexGen.generate(prompt, size, ai.n);
-  var c=document.createElement('canvas'); c.width=img.width; c.height=img.height; var d=c.getContext('2d').createImageData(img.width,img.height); d.data.set(img.rgba); c.getContext('2d').putImageData(d,0,0);
-  return { img:img, url:c.toDataURL('image/png'), mime:'image/png', u8:await rgbaToPng(img) };
-}
-var DE_EN={ metall:'metal', metallisch:'metallic', stahl:'steel', eisen:'iron', alu:'aluminium', aluminium:'aluminium', stoff:'fabric', textil:'textile', leder:'leather', holz:'wood', kunststoff:'polymer plastic', plastik:'plastic', polymer:'polymer', gummi:'rubber', beton:'concrete', stein:'stone', rost:'rust', rostig:'rusty', rostiges:'rusty',
-  schwarz:'black', schwarzes:'black', schwarzer:'black', grau:'gray', graues:'gray', oliv:'olive drab', grün:'green', gruen:'green', braun:'brown', braunes:'brown', rot:'red', blau:'blue', weiß:'white', weiss:'white', gelb:'yellow', sand:'sand', beige:'beige', silber:'silver', gold:'gold', dunkel:'dark', hell:'light',
-  abgenutzt:'worn', abgenutztes:'worn', abgenutzter:'worn', alt:'old', altes:'old', neu:'new', kratzer:'scratches', zerkratzt:'scratched', dreckig:'dirty', schmutzig:'dirty', staubig:'dusty', glänzend:'glossy', matt:'matte', gebürstet:'brushed', lackiert:'painted', poliert:'polished', geriffelt:'knurled', strukturiert:'textured',
-  tarn:'camouflage', tarnmuster:'camouflage pattern', tarnstoff:'camouflage fabric', textur:'texture', muster:'pattern', magazin:'magazine', pistole:'pistol', gewehr:'rifle', waffe:'weapon', griff:'grip', lauf:'barrel', schlitten:'slide', visier:'sights', schaft:'stock',
-  schal:'scarf', maske:'mask', weste:'vest', helm:'helmet', uniform:'uniform', hose:'trousers', jacke:'jacket', stiefel:'boots', tasche:'pouch', rucksack:'backpack', handschuhe:'gloves', mütze:'beanie', brille:'glasses', glas:'glass',
-  für:'for', aus:'made of', mit:'with', und:'and', ohne:'without', die:'', der:'', das:'', eine:'a', ein:'a', einer:'a', mach:'', mache:'', erstelle:'' };
-function toEN(t){
-  var orig=t, out=t.replace(/[A-Za-zÄÖÜäöüß]+/g, function(w){ var k=w.toLowerCase(); return Object.prototype.hasOwnProperty.call(DE_EN,k) ? DE_EN[k] : w; }).replace(/\s+/g,' ').trim();
-  return out===orig ? orig : out+' (German: '+orig+')';
-}
-function readable(n){ return String(n||'').replace(/\.[a-z0-9]+$/i,'').replace(/_(co|ca)$/i,'').replace(/^(mpp|dz|a3|cup|rhs)_/i,'').replace(/[_\-]+/g,' ').trim(); }
-function partContext(f, m){ var mn=readable(f.name), pn=readable(m.tex?MK.baseName(m.tex):m.name); return mn+(pn && !/^ohne textur/i.test(pn) && pn.toLowerCase()!==mn.toLowerCase() ? ' – part "'+pn+'"' : ''); }
-function missingMats(f){
-  if (!f || !f.model) return [];
-  var li=f.lodPick!=null?f.lodPick:MK.defaultLod(f.model);
-  return MK.collectMaterials(f.model,[li]).list.filter(function(m){ return !m.color && !texFor(f,m.key,m.tex); });
-}
-var polliNext=0;
-async function genPolli(prompt, size, seamless, ctx){
-  var wait=polliNext-Date.now();
-  if (wait>0){ $('aiMsg').textContent='Kurze Pause (kostenloser Zugang) – noch '+Math.ceil(wait/1000)+' s …'; await new Promise(function(r){ setTimeout(r, wait); }); $('aiMsg').textContent='Die KI malt …'; }
-  polliNext=Date.now()+15500;
-  var p='high quality game texture, PBR albedo base color map, '+(seamless?'seamless tileable, ':'')+'flat lay top-down orthographic view, uniform soft lighting, no shadows, no perspective, no objects, no text, no watermark, highly detailed surface filling the whole image. Material: '+toEN(prompt)+(ctx?'. Used on: '+ctx:'');
-  var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(p)+'?width='+size+'&height='+size+'&nologo=true&model=flux&seed='+((Math.random()*1e9)|0);
-  var u8, mime='image/jpeg';
-  if (mk && mk.httpGetImage){ var r=await mk.httpGetImage(url); if (!r.ok) throw new Error('Online-KI antwortet mit Fehler '+r.status+' – später nochmal versuchen.'); u8=b64ToU8(r.data); mime=r.type||mime; }
-  else {
-    var res; try { res=await fetch(url); } catch(x){ throw new Error('Keine Verbindung zur Online-KI. Internet prüfen oder Quelle „Eingebaut“ nehmen.'); }
-    if (!res.ok) throw new Error(res.status===429?'Zu viele Anfragen – kurz warten.':'Online-KI antwortet mit Fehler '+res.status+' – später nochmal versuchen.');
-    u8=new Uint8Array(await res.arrayBuffer()); mime=res.headers.get('content-type')||mime;
-  }
-  if (!/^image\//.test(mime)) throw new Error('Die Online-KI hat kein Bild geliefert. Später nochmal versuchen.');
-  var img=await decodeImageBytes(u8);
-  var b64=''; for (var i=0;i<u8.length;i+=32768) b64+=String.fromCharCode.apply(null,u8.subarray(i,i+32768));
-  return { img:img, url:'data:'+mime+';base64,'+btoa(b64), mime:mime, u8:u8 };
-}
-async function genGemini(prompt, seamless, useUV){
-  if (!S.aiKey) throw new Error('Kein Gemini-Schlüssel eingetragen (rechts unter Texturen erstellen).');
-  var parts=[{ text: texPromptEN(prompt, seamless, useUV) }];
-  if (useUV) parts.push({ inline_data:{ mime_type:'image/png', data: uvLayout(ai.f, ai.m.key, 1024) } });
-  var cfg={ responseModalities:['IMAGE'], imageConfig:{ aspectRatio:'1:1' } };
-  if ($('ai2k').checked) cfg.imageConfig.imageSize='2K';
-  var url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.aiModel)+':generateContent';
-  var payload=JSON.stringify({ contents:[{ role:'user', parts:parts }], generationConfig: cfg }), res, j=null;
-  if (mk && mk.aiRequest){ var rr=await mk.aiRequest(url, S.aiKey, payload); res={ ok:rr.ok, status:rr.status }; j=rr.json; }
-  else {
-    try { res=await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/json', 'x-goog-api-key': S.aiKey }, body: payload }); }
-    catch(x){ throw new Error('Keine Verbindung zu Google. Internet prüfen.'); }
-    try { j=await res.json(); } catch(x){}
-  }
-  if (!res.ok){
-    var em=(j && j.error && j.error.message) || ('Fehler '+res.status);
-    if (res.status===400 && /API key/i.test(em)) em='Der API-Schlüssel ist ungültig.';
-    else if (res.status===403) em='Der Schlüssel hat keinen Zugriff auf dieses Modell.';
-    else if (res.status===429) em='Gemini-Limit erreicht (Bilder sind bei Google meist kostenpflichtig). Stell rechts die Quelle auf „Eingebaut“ oder „Online-KI“ – beide sind gratis.';
-    else if (res.status===404) em='Modell nicht gefunden – wähle rechts ein anderes Modell.';
-    throw new Error(em);
-  }
-  var cand=j && j.candidates && j.candidates[0], ps=(cand && cand.content && cand.content.parts)||[], imgPart=null, txt='';
-  ps.forEach(function(p){ var d=p.inlineData||p.inline_data; if (d && d.data && !imgPart) imgPart=d; else if (p.text) txt+=p.text; });
-  if (!imgPart){ var why=(cand && cand.finishReason) || (j && j.promptFeedback && j.promptFeedback.blockReason) || ''; throw new Error('Die KI hat kein Bild geliefert'+(why?' ('+why+')':'')+(txt?': '+txt.slice(0,160):'')+'.'); }
-  var mime=imgPart.mimeType||imgPart.mime_type||'image/png', u8=b64ToU8(imgPart.data);
-  return { img:await decodeImageBytes(u8), url:'data:'+mime+';base64,'+imgPart.data, mime:mime, u8:u8 };
-}
-async function genFor(f, m, prompt, size, seamless, src){
-  var r = src==='builtin' ? await genBuiltin(prompt, size) : src==='polli' ? await genPolli(prompt, size, seamless, partContext(f, m)) : await genGemini(prompt+' (for '+partContext(f,m)+')', seamless, $('aiUV').checked);
-  ai.n++;
-  var ext = /jpe?g/.test(r.mime) ? '.jpg' : '.png';
-  var name=(src==='builtin'?'gen_':'ki_')+MK.safeName(m.name)+'_'+ai.n+ext;
-  var it=libAdd({ name:name, file:new File([r.u8], name, { type:r.mime }) }, true); it.img=r.img;
-  f.override=f.override||{}; f.override[m.key]={ img:r.img, name:name, ai:true };
-  if (f===selected) refreshView();
-  hx('texgen '+name+' '+r.img.width+'x'+r.img.height+' ✓');
-  return { r:r, name:name };
-}
-$('aiGo').onclick=async function(){
-  if (ai.busy || !ai.f) return;
-  var prompt=$('aiPrompt').value.trim(), msg=$('aiMsg');
-  if (!prompt){ msg.style.color=''; msg.textContent='Bitte kurz beschreiben, was drauf soll.'; return; }
-  ai.f.aiPrompts=ai.f.aiPrompts||{}; ai.f.aiPrompts[ai.m.key]=prompt;
-  var seamless=$('aiSeamless').checked, size=$('ai2k').checked?2048:1024, src=S.aiSource;
-  var jobs=[ai.m]; if ($('aiAll').checked && $('aiAllRow').style.display!=='none') jobs=jobs.concat(missingMats(ai.f).filter(function(x){ return x.key!==ai.m.key; }));
-  ai.busy=true; var btn=this; btn.disabled=true; btn.textContent='Erstellt …';
-  msg.style.color=''; hxBurst(src==='builtin'?2000:8000);
-  var done=0, last=null;
-  try {
-    for (var i=0;i<jobs.length;i++){
-      if (!$('aiDlg').classList.contains('on') && i>0) break;
-      msg.style.color=''; msg.textContent=(jobs.length>1?'Teil '+(i+1)+' von '+jobs.length+' ('+jobs[i].name+'): ':'')+(src==='builtin'?'wird erzeugt …':'die KI malt … (meist 5–30 Sekunden)');
-      hx('texgen source='+src+' part='+jobs[i].name+' prompt="'+prompt.slice(0,50)+'"');
-      last=await genFor(ai.f, jobs[i], prompt, size, seamless, src); done++;
-      if (i===0){
-        $('aiImg').style.backgroundImage='url('+last.r.url+')';
-        $('aiInfo').innerHTML='<b style="color:var(--text)"></b><br>'+last.r.img.width+' × '+last.r.img.height+' Pixel · liegt jetzt auf dem Modell.<br>Gefällt dir nicht? Nochmal <b>Erstellen</b> gibt eine neue Variante. Alle Versuche findest du im Textur-Browser.';
-        $('aiInfo').querySelector('b').textContent=last.name; $('aiOut').style.display='flex';
-      }
-    }
-    msg.style.color='var(--green)'; msg.textContent='✓ Fertig'+(jobs.length>1?' – '+done+' von '+jobs.length+' Teilen':'');
-  } catch(e){ msg.style.color='var(--red)'; msg.textContent=(done?done+' Teil(e) fertig, dann: ':'')+clean(e); hx('texgen.error '+clean(e),'e'); }
-  ai.busy=false; btn.disabled=false; btn.textContent='✨ Erstellen';
-};
 
 // ---------- Bildansicht für Texturen ----------
 var imgCache=null;
@@ -2364,7 +1803,7 @@ document.addEventListener('drop',async function(e){
     try {
       var img, name;
       if (listId){ var src=files.length?null:window.__mkFiles().find(function(x){ return x.id===listId; }); if (!src || !src.img) return; img=src.img; name=src.name; }
-      else { var en=fileEntry(files[0]); libAdd(en, true); name=files[0].name; img=/\.pa[ac]$/i.test(name) ? MK.decodePAA(await readEntry(en)) : await decodeImageBytes(await readEntry(en)); }
+      else { var en=fileEntry(files[0]); libAdd(en); name=files[0].name; img=/\.pa[ac]$/i.test(name) ? MK.decodePAA(await readEntry(en)) : await decodeImageBytes(await readEntry(en)); }
       var f=selected; f.override=f.override||{}; f.override[key]={ img:img, name:name };
       hx('drop '+name+' → '+key);
       if (tb.open && tb.f===f && tb.m.key===key){ tb.prev=f.override[key]; }
