@@ -6,21 +6,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 :root{
-  --bg:#141619; --panel:#1c1f24; --panel2:#23272d; --line:#2e333a; --text:#e7e9ec; --dim:#8c939d;
+  --bg:#0e1520; --panel:#141d29; --panel2:#1b2633; --line:#243243; --text:#e7e9ec; --dim:#8c939d;
   --green:#46b562; --green2:#3a9a52; --red:#ef5b5b; --yellow:#e8b84a;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:13px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
 button,select,input{font:inherit;color:inherit}
-header{height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+header{height:64px;display:flex;align-items:center;gap:10px;padding:16px 14px 0;position:relative;border-bottom:1px solid var(--line);background:var(--panel)}
 header h1{font-size:15px;font-weight:600;margin:0}
 .ver{color:var(--dim);font-size:12px;padding:2px 7px;border:1px solid var(--line);border-radius:10px}
 .sp{flex:1}
 .watch{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:12px}
 .dot{width:8px;height:8px;border-radius:50%;background:#555}
 .dot.on{background:var(--green);box-shadow:0 0 0 3px rgba(70,181,98,.2)}
-main{display:grid;grid-template-columns:330px 1fr 290px;height:calc(100% - 48px - 26px)}
-.col{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+main{display:grid;grid-template-columns:330px minmax(0,1fr) 290px;height:calc(100% - 64px - 26px)}
+.col{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;min-width:0}
 .col:last-child{border-right:0;border-left:1px solid var(--line)}
 .colhead{padding:10px 12px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:8px}
 #drop{margin:0 12px 10px;border:1.5px dashed #3a4049;border-radius:8px;padding:18px 10px;text-align:center;color:var(--dim);cursor:pointer;transition:.15s}
@@ -44,13 +44,13 @@ main{display:grid;grid-template-columns:330px 1fr 290px;height:calc(100% - 48px 
 .btn.main:hover{background:#52c46e}
 .btn:disabled{opacity:.45;cursor:default}
 .grow{flex:1}
-#viewWrap{position:relative;flex:1;min-height:0;background:#101214}
-#view{width:100%;height:100%;display:block}
+#viewWrap{position:relative;flex:1;min-height:0;min-width:0;overflow:hidden;background:#0b111a}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block}
 #viewInfo{position:absolute;left:12px;top:10px;font-size:12px;color:var(--dim);pointer-events:none}
 #viewInfo b{color:var(--text);font-weight:600}
 #viewHelp{position:absolute;left:12px;bottom:10px;font-size:11px;color:#6a717b;pointer-events:none}
 #viewEmpty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#59606a;font-size:13px;pointer-events:none}
-.viewbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.viewbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--line);background:var(--panel)}
 select,input[type=number]{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:5px 7px;outline:none}
 select:focus,input:focus{border-color:var(--green)}
 .set{padding:4px 14px 14px;overflow:auto;flex:1}
@@ -62,50 +62,79 @@ select:focus,input:focus{border-color:var(--green)}
 .chk{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;cursor:pointer}
 .chk input{margin:2px 0 0;accent-color:var(--green)}
 .chk small{display:block;color:var(--dim);font-size:11px}
-.path{font-size:11px;color:var(--dim);word-break:break-all;margin-top:4px}
+.path{font-size:11px;color:var(--dim);overflow-wrap:anywhere;margin-top:4px}
 footer{height:26px;border-top:1px solid var(--line);background:var(--panel);display:flex;align-items:center;padding:0 12px;font-size:12px;color:var(--dim);gap:8px}
 footer .ok{color:var(--green)} footer .err{color:var(--red)}
 .log{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#err{margin:10px 12px 0;padding:8px 10px;border-radius:6px;background:rgba(239,91,91,.1);border:1px solid rgba(239,91,91,.35);color:#f3a3a3;font-size:12px;display:none}
+#err{gap:10px;align-items:center;margin:10px 12px 0;padding:8px 10px;border-radius:6px;background:rgba(239,91,91,.1);border:1px solid rgba(239,91,91,.35);color:#f3a3a3;font-size:12px;display:none}
 .toggle{position:relative;width:32px;height:18px;border-radius:9px;background:#3a4049;border:0;cursor:pointer;flex:none}
 .toggle::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#cfd3d8;transition:.15s}
 .toggle.on{background:var(--green)} .toggle.on::after{left:16px;background:#fff}
+.tools{display:flex;gap:6px;align-items:center;padding:0 12px 8px}
+#search{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 8px;outline:none}
+#search:focus{border-color:var(--green)}
+.selall{display:flex;align-items:center;gap:6px;white-space:nowrap;color:var(--dim);font-size:12px;cursor:pointer}
+.selall input,.item .cb,.grp input{accent-color:var(--green);margin:0;cursor:pointer}
+.grp{display:flex;align-items:center;gap:7px;padding:6px 8px;margin-top:4px;border-radius:6px;cursor:pointer;color:var(--dim);font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.grp:hover{background:var(--panel2)}
+.grp .ar{width:10px;display:inline-block;transition:transform .15s}
+.grp.closed .ar{transform:rotate(-90deg)}
+.grp .gc{margin-left:auto;font-size:11px}
+.item{grid-template-columns:16px 10px 1fr auto!important}
+#matPanel{position:absolute;right:10px;top:10px;width:250px;max-height:calc(100% - 50px);display:none;flex-direction:column;background:rgba(10,16,24,.88);border:1px solid var(--line);border-radius:8px;z-index:3;backdrop-filter:blur(4px)}
+.mphead{display:flex;justify-content:space-between;padding:8px 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line)}
+#matList{overflow:auto;padding:4px}
+.mat{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center;padding:6px;border-radius:6px;cursor:default}
+.mat:hover{background:rgba(255,255,255,.05)}
+.mat .sw{width:34px;height:34px;border-radius:5px;border:1px solid var(--line);background-size:cover;background-position:center}
+.mat .mn{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mat .ms{font-size:11px;color:var(--dim);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.mat .ok{color:var(--green)} .mat .no{color:var(--yellow)}
+.mat button{border:1px solid var(--line);background:transparent;color:inherit;border-radius:4px;padding:1px 6px;font-size:11px;cursor:pointer}
+.mat button:hover{border-color:var(--green)}
+body.hacker #matPanel{background:rgba(2,10,5,.9)}
 ::-webkit-scrollbar{width:9px} ::-webkit-scrollbar-thumb{background:#2f343b;border-radius:5px}
 </style>
 </head>
 <body>
-<header>
-  <svg width="24" height="24" viewBox="0 0 24 24"><path d="M2 8a10 10 0 0 0 20 0z" fill="#46b562"/><path d="M4.2 8a7.8 7.8 0 0 0 15.6 0z" fill="#f2f0e6"/><path d="M5.3 8a6.7 6.7 0 0 0 13.4 0z" fill="#ef5b5b"/><circle cx="9" cy="10.5" r=".8" fill="#222"/><circle cx="12" cy="12.3" r=".8" fill="#222"/><circle cx="15" cy="10.5" r=".8" fill="#222"/></svg>
-  <h1>Melonenkonverter</h1><span class="ver" id="ver">–</span>
+<header data-lights>
+  <span style="position:relative;display:inline-flex"><svg class="hat" width="20" height="17" style="left:-5px;top:-11px;transform:rotate(-18deg)"><use href="#santahat"/></svg><svg width="24" height="24" viewBox="0 0 24 24"><path d="M2 8a10 10 0 0 0 20 0z" fill="#46b562"/><path d="M4.2 8a7.8 7.8 0 0 0 15.6 0z" fill="#f2f0e6"/><path d="M5.3 8a6.7 6.7 0 0 0 13.4 0z" fill="#ef5b5b"/><circle cx="9" cy="10.5" r=".8" fill="#222"/><circle cx="12" cy="12.3" r=".8" fill="#222"/><circle cx="15" cy="10.5" r=".8" fill="#222"/></svg></span>
+  <h1 class="glitch">Melonenkonverter</h1><span class="ver" id="ver">–</span>
   <div class="sp"></div>
+  <div class="snowridge" style="position:absolute;left:0;right:0;bottom:-10px;z-index:5"></div>
   <div class="watch" title="Neue P3D-Dateien in diesem Ordner werden sofort umgewandelt"><span class="dot" id="wDot"></span><span id="wTxt">Ordner-Automatik aus</span></div>
 </header>
 <main>
   <section class="col">
     <div class="colhead">Dateien <span class="sp"></span><span id="count"></span></div>
-    <div id="drop"><b>P3D-Dateien hier reinziehen</b>oder klicken zum Auswählen</div>
-    <input type="file" id="fileIn" accept=".p3d,.paa" multiple hidden>
+    <div id="drop" class="snowcap"><b>P3D, OBJ oder PAA hier reinziehen</b>oder klicken zum Auswählen</div>
+    <input type="file" id="fileIn" accept=".p3d,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg" multiple hidden>
+    <div class="tools"><input id="search" placeholder="Suchen …" spellcheck="false"><label class="selall"><input type="checkbox" id="selAll">Alle auswählen</label></div>
     <div id="list"><div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div></div>
     <div class="actions">
       <button class="btn" id="clear">Liste leeren</button>
-      <button class="btn main grow" id="convertAll" disabled>Alle umwandeln</button>
+      <button class="btn main grow snowcap" id="convertAll" disabled>Auswahl umwandeln</button>
     </div>
   </section>
   <section class="col">
     <div id="err"></div>
     <div id="viewWrap">
       <canvas id="view"></canvas>
+      <canvas id="img2d" style="position:absolute;inset:0;width:100%;height:100%;display:none"></canvas>
       <div id="viewInfo"></div>
       <div id="viewEmpty">Wähle links eine Datei für die Vorschau</div>
+      <div id="matPanel"><div class="mphead"><span>Materialien</span><span id="matCount"></span></div><div id="matList"></div></div>
+      <input type="file" id="texIn" accept=".paa,.pac,.png,.jpg,.jpeg,.tga,.bmp,.webp" hidden>
       <div id="viewHelp">Linke Maus drehen · Rechte Maus verschieben · Mausrad zoomen · F zentrieren</div>
     </div>
     <div class="viewbar">
       <span style="color:var(--dim)">LOD</span>
-      <select id="lodSel" disabled style="width:220px"></select>
-      <label class="chk" style="margin:0 0 0 6px;white-space:nowrap"><input type="checkbox" id="showBack">Rückseiten rot zeigen</label>
+      <select id="lodSel" disabled style="flex:1 1 120px;min-width:0;max-width:220px"></select>
+      <label class="chk" style="margin:0 0 0 6px;white-space:nowrap"><input type="checkbox" id="showBack">Rückseiten</label>
       <span class="sp"></span>
-      <button class="btn" id="openOut" disabled>Ordner öffnen</button>
-      <button class="btn main" id="convertOne" disabled>Umwandeln</button>
+      <button class="btn" id="openOut" disabled title="Ordner öffnen">📂</button>
+      <button class="btn" id="saveAs" disabled>Speichern unter …</button>
+      <button class="btn main snowcap" id="convertOne" disabled>Umwandeln</button>
     </div>
   </section>
   <section class="col">
@@ -118,10 +147,13 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
         <div class="path" id="watchPath">Neue oder geänderte P3D-Dateien im gewählten Ordner werden automatisch umgewandelt.</div>
       </div>
 
+      <div class="row"><label class="t">Design</label><select id="optTheme"><option value="hacker">Hacker</option><option value="xmas">Weihnachten</option><option value="plain">Schlicht</option></select></div>
+
       <h3>Speichern</h3>
       <div class="row">
         <label class="t">Speicherort</label>
-        <select id="optOut"><option value="same">Neben der P3D-Datei</option><option value="sub">Unterordner „OBJ“ neben der P3D</option><option value="folder">Eigener Ordner …</option></select>
+        <select id="optOut"><option value="same">Neben der Originaldatei</option><option value="sub">Unterordner „OBJ“/„PNG“ daneben</option><option value="folder">Fester Ordner (selbst wählen)</option><option value="ask">Jedes Mal fragen</option></select>
+        <button class="btn" id="outPick" style="margin-top:6px;width:100%;display:none">📁 Ordner wählen …</button>
         <div class="path" id="outPath"></div>
       </div>
       <div class="row">
@@ -131,6 +163,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
 
       <h3>Texturen</h3>
       <label class="chk"><input type="checkbox" id="optMtl" checked><span>Materialdatei (.mtl) erstellen</span></label>
+      <label class="chk"><input type="checkbox" id="optSplit" checked><span>Pro Textur ein eigenes Objekt<small>In Blender heißt jedes Teil wie seine Textur, z. B. „modell__helm_co“</small></span></label>
       <label class="chk"><input type="checkbox" id="optPaa" checked><span>PAA-Texturen zu PNG umwandeln<small>Sucht die Texturen neben der P3D und in den Ordnern darüber</small></span></label>
 
       <h3>Ausrichtung</h3>
@@ -142,7 +175,165 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     </div>
   </section>
 </main>
+<div id="term"></div>
 <footer><span class="log" id="log">Bereit.</span></footer>
+
+<style id="hacker-style">
+body.hacker{--bg:#020604;--panel:rgba(4,14,8,.86);--panel2:rgba(8,26,14,.9);--line:#0e3b1d;--text:#b9ffd0;--dim:#3c9e5a;--green:#00ff66;--red:#ff3b5c;--yellow:#d7ff3b;
+  background:#020604;font-family:Consolas,"Cascadia Mono","Lucida Console",monospace;letter-spacing:.01em}
+body.hacker *{font-family:inherit}
+body.hacker header,body.hacker footer,body.hacker .viewbar{background:var(--panel)}
+body.hacker main,body.hacker header,body.hacker footer{position:relative;z-index:1}
+body.hacker h1{color:var(--green);text-shadow:0 0 8px rgba(0,255,102,.7);text-transform:uppercase;letter-spacing:.12em;font-size:14px}
+body.hacker h1::after{content:"_";animation:blink 1s steps(1) infinite;margin-left:2px}
+body.hacker h1::before{content:"root@melone:~# ";color:var(--dim);text-shadow:none;letter-spacing:0;font-weight:400;text-transform:none}
+@keyframes blink{50%{opacity:0}}
+body.hacker .btn{background:transparent;border-color:var(--line);color:var(--green);text-transform:uppercase;letter-spacing:.08em;font-size:12px}
+body.hacker .btn:hover{border-color:var(--green);box-shadow:0 0 10px rgba(0,255,102,.35) inset}
+body.hacker .btn.main{background:rgba(0,255,102,.12);border-color:var(--green);color:var(--green);text-shadow:0 0 6px rgba(0,255,102,.8)}
+body.hacker .btn.main:hover{background:rgba(0,255,102,.22)}
+body.hacker #drop{border-color:#145a2b;color:var(--dim)}
+body.hacker #drop b{color:var(--green);text-transform:uppercase;letter-spacing:.08em}
+body.hacker #drop:hover,body.hacker #drop.over{border-color:var(--green);background:rgba(0,255,102,.05)}
+body.hacker .item.sel{background:rgba(0,255,102,.1);box-shadow:inset 2px 0 0 var(--green)}
+body.hacker .item:hover{background:rgba(0,255,102,.06)}
+body.hacker .colhead,body.hacker .set h3{color:var(--green);opacity:.8}
+body.hacker .colhead::before,body.hacker .set h3::before{content:"> "}
+body.hacker select,body.hacker input[type=number]{background:#03110a;border-color:var(--line);color:var(--text)}
+body.hacker .chk input{accent-color:#00ff66}
+body.hacker .toggle.on{background:var(--green)}
+body.hacker #viewWrap{background:#010402}
+body.hacker #viewInfo b{color:var(--green)}
+body.hacker #err{background:rgba(255,59,92,.08);border-color:rgba(255,59,92,.5);color:#ff8fa3}
+body.hacker::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:60;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+#matrix{position:fixed;inset:0;z-index:0;pointer-events:none;display:none;opacity:.35}
+body.hacker #matrix{display:block}
+#term{display:none}
+body.hacker #term{display:block;position:relative;z-index:1;height:150px;border-top:1px solid var(--line);background:rgba(1,8,4,.94);overflow:hidden;padding:6px 12px;font-size:11.5px;line-height:1.38;color:#2fe070}
+body.hacker #term .l{white-space:pre;overflow:hidden;text-overflow:ellipsis}
+body.hacker #term .w{color:#d7ff3b} body.hacker #term .e{color:#ff3b5c} body.hacker #term .k{color:#b9ffd0;text-shadow:0 0 6px rgba(0,255,102,.6)} body.hacker #term .d{color:#1d7a3d}
+body.hacker footer{display:none}
+body.hacker main{height:calc(100% - 64px - 150px)!important}
+body.hacker .glitch{animation:glitch 6s infinite}
+@keyframes glitch{0%,92%,100%{transform:none;filter:none}93%{transform:translateX(2px);filter:hue-rotate(40deg)}95%{transform:translateX(-2px)}97%{transform:translateX(1px) skewX(4deg)}}
+</style>
+<canvas id="matrix"></canvas>
+<script>
+(function(){
+  // ---- Matrix-Regen ----
+  var cv=document.getElementById('matrix'), ctx=cv.getContext('2d'), cols=[], fs=15, last=0;
+  var chars='アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF<>/*+=#$%&';
+  function size(){ cv.width=innerWidth; cv.height=innerHeight; cols=[]; for(var i=0;i<Math.ceil(innerWidth/fs);i++) cols.push(Math.random()*-60); }
+  size(); addEventListener('resize',size);
+  function frame(t){
+    requestAnimationFrame(frame);
+    if(!document.body.classList.contains('hacker')||document.hidden||t-last<50) return; last=t;
+    ctx.fillStyle='rgba(2,6,4,.12)'; ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.font=fs+'px Consolas,monospace';
+    for(var i=0;i<cols.length;i++){
+      var y=cols[i]*fs; ctx.fillStyle=Math.random()<.04?'#d8ffe6':'#00c24e';
+      ctx.fillText(chars[(Math.random()*chars.length)|0], i*fs, y);
+      if(y>cv.height && Math.random()>.975) cols[i]=0; else cols[i]++;
+    }
+  }
+  requestAnimationFrame(frame);
+
+  // ---- Konsole ----
+  var term=null, queue=[], busy=0;
+  function hex(n){ var s=''; for(var i=0;i<n;i++) s+='0123456789ABCDEF'[(Math.random()*16)|0]; return s; }
+  function pick(a){ return a[(Math.random()*a.length)|0]; }
+  function ts(){ var d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2)+'.'+('00'+d.getMilliseconds()).slice(-3); }
+  function push(text, cls){
+    if(!term) return;
+    var d=document.createElement('div'); d.className='l '+(cls||''); d.textContent='['+ts()+'] '+text; term.appendChild(d);
+    while(term.childNodes.length>12) term.removeChild(term.firstChild);
+  }
+  var noise=[
+    function(){ return 'mem 0x'+hex(8)+' → 0x'+hex(8)+'  '+pick(['MAP','SYNC','ALLOC','FLUSH','LOCK'])+'  ok'; },
+    function(){ return pick(['vertex','index','uv','normal','lod','section'])+'_buffer['+((Math.random()*4096)|0)+'] checksum '+hex(8).toLowerCase()+' ✓'; },
+    function(){ return 'lzo1x stream 0x'+hex(4)+'  '+((Math.random()*90000)|0)+' B  ratio '+(Math.random()*3+1).toFixed(2); },
+    function(){ return 'thread#'+((Math.random()*16)|0)+' '+pick(['idle','polling','waiting for input','heartbeat']); },
+    function(){ return pick(['scan','probe','hash','verify'])+' sector '+hex(6)+' '+pick(['....... OK','....... OK','....... PASS','....... CLEAN']); },
+    function(){ return 'net.watch '+pick(['eth0','wlan0','lo'])+' rx='+((Math.random()*999)|0)+'kb tx='+((Math.random()*99)|0)+'kb'; },
+    function(){ return 'gpu.shader['+pick(['vs','fs'])+'_'+hex(3).toLowerCase()+'] compiled in '+(Math.random()*4).toFixed(3)+'ms'; }
+  ];
+  function tick(){
+    if(document.body.classList.contains('hacker') && !document.hidden){
+      if(queue.length){ var q=queue.shift(); push(q[0],q[1]); }
+      else if(Math.random()<(busy>Date.now()?0.95:0.35)) push(pick(noise)(), Math.random()<.15?'d':'');
+    }
+    setTimeout(tick, queue.length? 25 : (busy>Date.now()? 30 : 160+Math.random()*260));
+  }
+  window.hx=function(text, cls){ queue.push([text, cls||'k']); };
+  window.hxBurst=function(ms){ busy=Date.now()+(ms||1500); };
+  window.hxProgress=function(label){
+    for(var i=0;i<=10;i++) queue.push([label+' ['+'█'.repeat(i)+'░'.repeat(10-i)+'] '+(i*10)+'%', i===10?'k':'']);
+  };
+  window.addEventListener('DOMContentLoaded',function(){});
+  setTimeout(function(){
+    term=document.getElementById('term');
+    ['MELONE-OS v4.2.0 // secure shell','loading kernel modules ........ OK','mounting /dev/p3d ............. OK','decrypt layer [AES-256] ......... OK','connecting to mainframe ........ OK','access granted. welcome, operator.'].forEach(function(t,i){ queue.push([t, i===5?'k':'']); });
+    tick();
+  },0);
+})();
+</script>
+
+<style id="xmas-style">
+:root{--bg:#0e1520;--panel:#141d29;--panel2:#1b2633;--line:#243243;--dim:#8a97a8}
+body.xmas:not(.hacker){background:radial-gradient(ellipse at top,#16233a 0%,#0e1520 60%) fixed}
+#snow{position:fixed;inset:0;pointer-events:none;z-index:50}
+.lights{position:absolute;left:0;right:0;top:-6px;height:34px;margin:0;padding:0 0 0 10px;list-style:none;white-space:nowrap;overflow:hidden;pointer-events:none;z-index:40}
+.lights li{position:relative;display:inline-block;width:11px;height:20px;margin:0 19px;top:12px;border-radius:50%;background:var(--c);box-shadow:0 3px 16px 3px var(--c);animation:glow 1.6s infinite alternate;animation-delay:var(--d)}
+.lights li::before{content:"";position:absolute;left:1px;top:-5px;width:9px;height:7px;border-radius:2px;background:#3a4452}
+.lights li::after{content:"";position:absolute;left:5px;top:-14px;width:41px;height:12px;border-bottom:2px solid #2c3440;border-radius:50%}
+.lights li:last-child::after{display:none}
+@keyframes glow{0%{opacity:1;box-shadow:0 3px 16px 3px var(--c)}100%{opacity:.35;box-shadow:0 3px 6px 0 var(--c)}}
+.snowcap{position:relative}
+.snowcap::before{content:"";position:absolute;left:-2px;right:-2px;top:-6px;height:10px;pointer-events:none;
+  background:radial-gradient(circle at 8px 10px,#f4f8fc 7px,transparent 7.5px) repeat-x;background-size:15px 12px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));border-radius:6px 6px 0 0}
+.snowridge{height:10px;background:radial-gradient(circle at 10px 0,#e9f1f8 9px,transparent 9.5px) repeat-x;background-size:19px 10px;opacity:.9;pointer-events:none}
+.hat{position:absolute;pointer-events:none}
+body.noxmas #snow,body.noxmas .lights,body.noxmas .hat,body.noxmas .snowridge{display:none}
+body.noxmas .snowcap::before{display:none}
+</style>
+<svg width="0" height="0" style="position:absolute"><defs>
+  <symbol id="santahat" viewBox="0 0 40 34"><path d="M4 26 C8 10 20 2 33 8 C30 13 31 18 34 22 Z" fill="#d93a3a"/><path d="M33 8 C36 9 38 12 37 15" stroke="#d93a3a" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="37" cy="17" r="4" fill="#f4f8fc"/><rect x="1" y="23" width="34" height="8" rx="4" fill="#f4f8fc"/></symbol>
+</defs></svg>
+<canvas id="snow"></canvas>
+<script>
+(function(){
+  var th='hacker'; try{ var st=JSON.parse(localStorage.getItem('mk-settings')||'{}'); if(st.theme) th=st.theme; }catch(e){}
+  window.applyTheme=function(t){ var b=document.body; b.classList.toggle('xmas',t==='xmas'); b.classList.toggle('noxmas',t!=='xmas'); b.classList.toggle('hacker',t==='hacker'); };
+  applyTheme(th);
+  // Lichterkette
+  var cols=['#ff4d4d','#ffd23f','#3ddc84','#4db8ff','#ff7bd5'];
+  document.querySelectorAll('[data-lights]').forEach(function(host){
+    var ul=document.createElement('ul'); ul.className='lights';
+    var n=Math.ceil((host.clientWidth||window.innerWidth)/49)+2;
+    for(var i=0;i<n;i++){ var li=document.createElement('li'); li.style.setProperty('--c',cols[i%cols.length]); li.style.setProperty('--d',(-(i*0.37)%1.6)+'s'); ul.appendChild(li); }
+    host.style.position=host.style.position||'relative'; host.appendChild(ul);
+  });
+  // Schnee
+  var cv=document.getElementById('snow'), ctx=cv.getContext('2d'), flakes=[], last=0;
+  function size(){ cv.width=innerWidth; cv.height=innerHeight; }
+  size(); addEventListener('resize',size);
+  var count=Math.min(140,Math.round(innerWidth*innerHeight/9000));
+  for(var i=0;i<count;i++) flakes.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,r:Math.random()*2.2+.6,s:Math.random()*.6+.3,w:Math.random()*Math.PI*2});
+  function frame(t){
+    requestAnimationFrame(frame);
+    if(document.body.classList.contains('noxmas')){ ctx.clearRect(0,0,cv.width,cv.height); return; } if(document.hidden||t-last<33) return;
+    var dt=Math.min(3,(t-last)/16.7); last=t;
+    ctx.clearRect(0,0,cv.width,cv.height); ctx.fillStyle='rgba(255,255,255,.85)'; ctx.beginPath();
+    for(var i=0;i<flakes.length;i++){ var f=flakes[i];
+      f.y+=f.s*dt*1.4; f.w+=.02*dt; f.x+=Math.sin(f.w)*.4*dt;
+      if(f.y>cv.height+5){ f.y=-5; f.x=Math.random()*cv.width; }
+      ctx.moveTo(f.x,f.y); ctx.arc(f.x,f.y,f.r,0,Math.PI*2); }
+    ctx.fill();
+  }
+  requestAnimationFrame(frame);
+
+})();
+</script>
 
 <script>
 /* Melonenkonverter – Kern: P3D lesen, OBJ/MTL schreiben, PAA lesen */
@@ -200,11 +391,12 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   function parseP3D(buf) {
     var r = new Reader(buf);
     var sig = r.peekSig();
-    if (sig === 'ODOL') {
-      var e = new Error('Diese P3D ist binarisiert (ODOL). Nur unbinarisierte P3D-Dateien (MLOD) lassen sich umwandeln, z. B. die Originaldatei aus deinem Projektordner.');
-      e.code = 'ODOL'; throw e;
-    }
     var lods = [];
+    if (sig === 'ODOL') {
+      lods = readODOL(r);
+      lods.forEach(function (l, idx) { var info = lodInfo(l.resolution); l.name = info.name; l.visual = info.visual; l.index = idx; });
+      return { lods: lods, odol: true, version: r.odolVersion };
+    }
     if (sig === 'MLOD') {
       r.p += 4;
       r.u32(); // Version
@@ -274,6 +466,339 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     return any.length ? any[0].index : 0;
   }
 
+  // ---------- P3D (ODOL, binarisiert) lesen ----------
+  function odolErr(ver, msg) { var e = new Error('Binarisierte P3D (ODOL v' + ver + '): ' + msg); e.code = 'ODOL'; return e; }
+
+  function f32ok(v, lim) { return isFinite(v) && Math.abs(v) < (lim || 1e7); }
+
+  // Kompriertes Feld lesen: Version >= 64 mit Merker-Byte, sonst ab 1024 Bytes LZO
+  function odolData(u8, p, size, ver) {
+    var compressed = size >= 1024;
+    if (ver >= 64) { var fl = u8[p]; if (fl > 2) throw new Error('flag'); compressed = fl !== 0; p++; }
+    if (!compressed) { if (p + size > u8.length) throw new Error('size'); return { data: u8.subarray(p, p + size), end: p + size }; }
+    var out = lzo1x(u8.subarray(p, Math.min(u8.length, p + size * 2 + 4096)), size);
+    return { data: out, end: p + out.consumed };
+  }
+
+  function odolLoose(u8, p, cap, ver) {
+    if (ver < 64 || (u8[p] !== 1 && u8[p] !== 2)) return null;
+    var out = lzo1x(u8.subarray(p + 1, Math.min(u8.length, p + 1 + cap * 2 + 4096)), cap, true);
+    return { data: out, end: p + 1 + out.consumed };
+  }
+
+  function readODOL(r) {
+    var u8 = r.u8, dv = r.dv, size = u8.length;
+    r.p = 4;
+    var ver = r.u32(); r.odolVersion = ver;
+    if (ver < 50) throw odolErr(ver, 'Diese alte Version wird nicht unterstützt.');
+    var U32 = function (p) { return dv.getUint32(p, true); }, I32 = function (p) { return dv.getInt32(p, true); }, F32 = function (p) { return dv.getFloat32(p, true); };
+
+    // Kopf: LOD-Anzahl und Auflösungen finden
+    function resOk(v) { return isFinite(v) && v >= 0 && v < 1e17; }
+    var lodCount = 0, resPos = 0;
+    for (var p = 8; p < Math.min(size - 8, 600) && !lodCount; p++) {
+      var n = U32(p);
+      if (n < 1 || n > 64 || p + 4 + n * 4 > size) continue;
+      var ok = true;
+      for (var i = 0; i < n && ok; i++) ok = resOk(F32(p + 4 + i * 4));
+      if (!ok) continue;
+      // die erste LOD ist fast immer eine Ansicht (< 1000)
+      if (F32(p + 4) >= 1e3 && n > 1) continue;
+      // davor muss ein Text enden (Null-Byte) oder direkt der Kopf
+      if (p !== 8 && p !== 12 && u8[p - 1] !== 0) continue;
+      lodCount = n; resPos = p + 4;
+    }
+    if (!lodCount) throw odolErr(ver, 'LOD-Liste nicht gefunden.');
+    var res = []; for (i = 0; i < lodCount; i++) res.push(F32(resPos + i * 4));
+
+    // Start-/End-Adressen der LODs suchen
+    var starts = null, ends = null;
+    for (p = resPos + lodCount * 4; p + lodCount * 8 <= size && !starts; p += 1) {
+      var s = [], e = [], good = true;
+      for (i = 0; i < lodCount && good; i++) {
+        s.push(U32(p + i * 4)); e.push(U32(p + (lodCount + i) * 4));
+        good = s[i] >= p + lodCount * 8 && e[i] > s[i] + 32 && e[i] <= size;
+      }
+      if (!good) continue;
+      var order = s.map(function (v, k) { return k; }).sort(function (a, b) { return s[a] - s[b]; });
+      for (i = 1; i < order.length && good; i++) good = s[order[i]] >= e[order[i - 1]];
+      if (good) { starts = s; ends = e; }
+    }
+    if (!starts) throw odolErr(ver, 'LOD-Adressen nicht gefunden (LODs ' + lodCount + ', Auflösungen ' + res.map(function (x) { return +x.toPrecision(3); }).join('/') + ').');
+
+    var lods = [], problems = [];
+    for (i = 0; i < lodCount; i++) {
+      try { lods.push(readOdolLod(u8, dv, starts[i], ends[i], ver, res[i])); }
+      catch (ex) {
+        problems.push('LOD ' + i + ': ' + ex.message);
+        lods.push({ resolution: res[i], points: new Float32Array(0), normals: new Float32Array(0), faces: [], selections: [], nPoints: 0, nFaces: 0, failed: ex.message });
+      }
+    }
+    if (!lods.some(function (l) { return l.nFaces > 0; })) throw odolErr(ver, problems.join(' | ') || 'keine Flächen gefunden.');
+    return lods;
+  }
+
+  function readOdolLod(u8, dv, start, end, ver, resolution) {
+    var r = new Reader(u8.subarray(0, end)); r.p = start;
+    var U32 = function (p) { return dv.getUint32(p, true); }, F32 = function (p) { return dv.getFloat32(p, true); };
+    function printable(t) { for (var k = 0; k < t.length; k++) { var c = t.charCodeAt(k); if (c < 32 || c > 126) return false; } return t.length < 512; }
+    function directHead() {
+      var nProx = r.u32(); if (nProx > 10000) throw new Error('Proxys');
+      for (var i = 0; i < nProx; i++) {
+        if (!printable(r.str())) throw new Error('Proxyname'); r.p += 48 + 12;
+        if (ver >= 40) { proxySecs.push(r.dv.getInt32(r.p, true)); r.p += 4; }
+      }
+      var n = r.u32(); if (n > 100000) throw new Error('Skelett'); r.p += n * 4;
+      n = r.u32(); if (n > 100000) throw new Error('Skelett 2');
+      for (i = 0; i < n; i++) { var m = r.u32(); if (m > 100000) throw new Error('Skelett 3'); r.p += m * 4; }
+      return headFrom(r.p);
+    }
+    // ab Punktanzahl: [Fläche] Hints Box Mitte Radius Texturen
+    function headFrom(p0) {
+      var q = p0, v = U32(q); q += 4;
+      if (v > 5e6) throw new Error('Punktanzahl');
+      if (ver >= 51) { var fa = F32(q); if (!(fa >= 0 && fa < 1e9)) throw new Error('Fläche'); q += 4; }
+      q += 8;
+      var bb = []; for (var k = 0; k < 10; k++) bb.push(F32(q + k * 4));
+      if (!bb.every(function (x) { return f32ok(x, 1e5); })) throw new Error('Box');
+      if (!(bb[0] <= bb[3] && bb[1] <= bb[4] && bb[2] <= bb[5]) || bb[9] < 0) throw new Error('Box');
+      q += 40;
+      var nT = U32(q); q += 4; if (nT > 1000) throw new Error('Texturen');
+      var tex = [];
+      for (k = 0; k < nT; k++) {
+        var e = q; while (e < end && u8[e] !== 0) e++;
+        if (e >= end) throw new Error('Texturen');
+        var t = ''; for (var j = q; j < e; j++) t += String.fromCharCode(u8[j]);
+        if (!printable(t)) throw new Error('Texturname');
+        tex.push(t); q = e + 1;
+      }
+      return { vc: v, bmin: bb.slice(0, 3), bmax: bb.slice(3, 6), textures: tex, after: q };
+    }
+    var head = null, headErr = '', proxySecs = [];
+    try { head = directHead(); } catch (ex) { headErr = ex.message; }
+    if (!head) {
+      // Ersatz: Kopf anhand von Box + Texturliste suchen
+      for (var hp = start; hp < Math.min(end - 60, start + 400000) && !head; hp++) {
+        try { var h = headFrom(hp); if (h.vc >= 3 && (h.textures.length || h.bmax[0] > h.bmin[0])) head = h; } catch (ex) {}
+      }
+      if (!head) throw new Error('Kopf unlesbar (' + headErr + ')');
+    }
+    var vc = head.vc, bmin = head.bmin, bmax = head.bmax, textures = head.textures, nTex = textures.length, i, n;
+    var after = head.after;
+    if (vc === 0) return { resolution: resolution, points: new Float32Array(0), normals: new Float32Array(0), faces: [], selections: [], nPoints: 0, nFaces: 0 };
+
+    // Flächen suchen
+    var faces = null, faceEnd = 0, faceOffsets = null, idxSizes = ver >= 69 ? [4, 2] : [2, 4];
+    for (var p = after; p + 12 < end && !faces; p++) {
+      var nf = U32(p);
+      if (nf < 1 || nf > 4e6) continue;
+      for (var si = 0; si < idxSizes.length && !faces; si++) for (var skip = 2; skip >= 0 && !faces; skip -= 2) {
+        var q = p + 8 + skip, isz = idxSizes[si], f = [], offs = [], ok = true, base = q;
+        for (var k = 0; k < nf; k++) {
+          if (q >= end) { ok = false; break; }
+          var c = u8[q];
+          if (c !== 3 && c !== 4) { ok = false; break; }
+          offs.push(q - base);
+          var vs = [];
+          for (var j = 0; j < c; j++) {
+            var at = q + 1 + j * isz;
+            var idx = isz === 4 ? U32(at) : (u8[at] | (u8[at + 1] << 8));
+            if (idx >= vc) { ok = false; break; }
+            vs.push(idx);
+          }
+          if (!ok) break;
+          f.push(vs); q += 1 + c * isz;
+        }
+        if (ok && nf >= 1) { faces = f; faceEnd = q; faceOffsets = offs; offs.push(q - base); }
+      }
+    }
+    if (!faces) throw new Error('Flächen nicht gefunden');
+
+    // Abschnitte (welche Textur für welche Flächen)
+    var faceSec = new Array(faces.length).fill(-1), faceTex = new Array(faces.length).fill(-1), isProxy = new Array(faces.length).fill(false), secEnd = faceEnd;
+    try {
+      r.p = faceEnd;
+      var nSec = r.u32(); if (nSec < 1 || nSec > 100000) throw 0;
+      var secs = [];
+      for (i = 0; i < nSec; i++) {
+        var lo = r.u32(), hi = r.u32(); r.u32(); r.u32(); r.u32();
+        var ti = r.dv.getInt16(r.p, true); r.p += 2;
+        r.u32();
+        var mi = r.dv.getInt32(r.p, true); r.p += 4;
+        if (mi === -1) r.u8v();
+        if (ver >= 36) { var ns = r.u32(); if (ns > 64) throw 0; r.p += ns * 4; if (ver >= 67) { var x = r.dv.getInt32(r.p, true); r.p += 4; if (x >= 1) r.p += 44; } }
+        else r.p += 4;
+        if (ti < -1 || ti >= nTex || hi < lo) throw 0;
+        secs.push([lo, hi, ti]);
+      }
+      var maxHi = Math.max.apply(null, secs.map(function (s) { return s[1]; }));
+      var byOffset = maxHi > faces.length;
+      secs.forEach(function (s, sIdx) {
+        var hit = [];
+        for (var fi = 0; fi < faces.length; fi++) {
+          var pos = byOffset ? faceOffsets[fi] : fi;
+          if (pos >= s[0] && pos < s[1]) { faceTex[fi] = s[2]; faceSec[fi] = sIdx; hit.push(fi); }
+        }
+        // Proxy-Platzhalter: eigener Abschnitt mit einem einzelnen Dreieck
+        if (proxySecs.indexOf(sIdx) >= 0 && hit.length <= 16 && hit.every(function (fi) { return faces[fi].length === 3; })) hit.forEach(function (fi) { isProxy[fi] = true; });
+      });
+      secEnd = r.p;
+    } catch (ex) { /* ohne Abschnitte: eine Textur */ }
+
+    // UVs suchen (min/max + Anzahl = Vertices)
+    var uv = null, uvEnd = secEnd;
+    for (p = secEnd; p + 22 < end && !uv; p++) {
+      if (U32(p + 16) !== vc) continue;
+      var a = F32(p), b = F32(p + 4), c2 = F32(p + 8), d = F32(p + 12);
+      if (!(f32ok(a, 1e4) && f32ok(b, 1e4) && f32ok(c2, 1e4) && f32ok(d, 1e4) && a <= c2 && b <= d)) continue;
+      var fill = u8[p + 20]; if (fill > 1) continue;
+      try {
+        var raw;
+        if (fill === 1) { raw = new Uint8Array(vc * 4); for (i = 0; i < vc; i++) raw.set(u8.subarray(p + 21, p + 25), i * 4); uvEnd = p + 25; }
+        else { var dd = odolData(u8, p + 21, vc * 4, ver); raw = dd.data; uvEnd = dd.end; }
+        var udv = new DataView(raw.buffer, raw.byteOffset, raw.byteLength), uvs = new Float32Array(vc * 2);
+        for (i = 0; i < vc; i++) {
+          uvs[i * 2] = a + (c2 - a) * (udv.getInt16(i * 4, true) + 32767) / 65534;
+          uvs[i * 2 + 1] = b + (d - b) * (udv.getInt16(i * 4 + 2, true) + 32767) / 65534;
+        }
+        uv = uvs;
+      } catch (ex) { uv = null; }
+    }
+
+    // Positionen suchen: Feld mit genau so vielen Punkten, das zu den Flächen passt
+    var maxIdx = 0; faces.forEach(function (vs) { vs.forEach(function (ix) { if (ix > maxIdx) maxIdx = ix; }); });
+    var counts = [vc]; if (maxIdx + 1 !== vc) counts.push(maxIdx + 1);
+    var ext = Math.max(bmax[0] - bmin[0], bmax[1] - bmin[1], bmax[2] - bmin[2]);
+    var boxOk = isFinite(ext) && ext > 0 && ext < 1e5, tol = 0.02 + 0.01 * (boxOk ? ext : 0);
+    var cands = 0, why = {}, diag = [];
+    function score(arr) {
+      var good = 0, step = Math.max(1, Math.floor(faces.length / 400)), tot = 0;
+      for (var fi = 0; fi < faces.length; fi += step) {
+        var vs = faces[fi], a = vs[0] * 3, b = vs[1] * 3, c = vs[2] * 3; tot++;
+        var ux = arr[b] - arr[a], uy = arr[b + 1] - arr[a + 1], uz = arr[b + 2] - arr[a + 2];
+        var wx = arr[c] - arr[a], wy = arr[c + 1] - arr[a + 1], wz = arr[c + 2] - arr[a + 2];
+        var cx = uy * wz - uz * wy, cy = uz * wx - ux * wz, cz = ux * wy - uy * wx;
+        if (cx * cx + cy * cy + cz * cz > 1e-16) good++;
+      }
+      return tot ? good / tot : 0;
+    }
+    function tryPos(p0) {
+      var cnt = U32(p0); if (counts.indexOf(cnt) < 0) return null;
+      cands++;
+      var res = null;
+      [0, 1].forEach(function (extra) {
+        if (res) return;
+        var dd;
+        try { dd = odolData(u8, p0 + 4 + extra, cnt * 12, ver); } catch (ex) { why.daten = (why.daten || 0) + 1; return; }
+        var pdv = new DataView(dd.data.buffer, dd.data.byteOffset, dd.data.byteLength), out = new Float32Array(cnt * 3), inBox = true, mn = 1e30, mx = -1e30;
+        for (var i2 = 0; i2 < cnt * 3; i2++) {
+          var v = pdv.getFloat32(i2 * 4, true), ax = i2 % 3;
+          if (!(Math.abs(v) < 1e5)) { why.werte = (why.werte || 0) + 1; return; }
+          if (boxOk && !(v >= bmin[ax] - tol && v <= bmax[ax] + tol)) inBox = false;
+          if (v < mn) mn = v; if (v > mx) mx = v;
+          out[i2] = v;
+        }
+        if (!(mx - mn > 1e-4)) { why.flach = (why.flach || 0) + 1; return; }
+        var sc = score(out);
+        if (sc < 0.6) { why.form = (why.form || 0) + 1; return; }
+        res = { pts: out, score: sc + (inBox ? 1 : 0), cnt: cnt };
+      });
+      if (res) return res;
+      // andere Speicherform: Größe aus den entpackten Daten ablesen
+      [0, 1].forEach(function (extra) {
+        if (res) return;
+        var dd; try { dd = odolLoose(u8, p0 + 4 + extra, cnt * 16 + 64, ver); } catch (ex) { dd = null; }
+        if (!dd) return;
+        var L = dd.data.length, es = L / cnt;
+        diag.push('@' + (p0 - start) + ':' + L + 'B/' + (Math.round(es * 100) / 100));
+        if (es !== 6 && es !== 8) return;
+        var lo = bmin, hi = bmax, own = false;
+        if (p0 - 24 >= start) {
+          var q = [0, 1, 2, 3, 4, 5].map(function (k) { return F32(p0 - 24 + k * 4); });
+          if (q.every(function (x) { return f32ok(x, 1e5); }) && q[0] <= q[3] && q[1] <= q[4] && q[2] <= q[5] && (q[3] - q[0]) + (q[4] - q[1]) > 0) { lo = q.slice(0, 3); hi = q.slice(3); own = true; }
+        }
+        var qv = new DataView(dd.data.buffer, dd.data.byteOffset, L), out = new Float32Array(cnt * 3);
+        for (var i3 = 0; i3 < cnt; i3++) for (var ax = 0; ax < 3; ax++) {
+          var sv = qv.getInt16(i3 * es + ax * 2, true);
+          out[i3 * 3 + ax] = lo[ax] + (hi[ax] - lo[ax]) * (sv + 32767) / 65534;
+        }
+        var sc = score(out);
+        if (sc >= 0.6) res = { pts: out, score: sc + 0.5 + (own ? 0.3 : 0), cnt: cnt };
+        else why.form = (why.form || 0) + 1;
+      });
+      return res;
+    }
+    var best = null;
+    for (p = after; p + 8 < end; p++) {
+      var cand = tryPos(p);
+      if (cand && (!best || cand.score > best.score)) { best = cand; if (best.score >= 1.95) break; }
+    }
+    if (!best) throw new Error('Punkte nicht gefunden (vc=' + vc + ', max=' + (maxIdx + 1) + ', Box ' + bmin.map(function (x) { return +x.toFixed(2); }) + '/' + bmax.map(function (x) { return +x.toFixed(2); }) + ', Kandidaten ' + cands + ' ' + JSON.stringify(why) + ', uv ' + (uv ? 'ja@' + (uvEnd - start) : 'nein') + ', ' + diag.slice(0, 8).join(' ') + ')');
+    var pts = best.pts; vc = best.cnt;
+    if (uv && uv.length / 2 !== vc) uv = null;
+
+    var outFaces = faces.map(function (vs, fi) {
+      if (isProxy[fi]) return null;
+      var t = faceTex[fi] >= 0 ? textures[faceTex[fi]] : (textures.length === 1 ? textures[0] : '');
+      return { v: vs.map(function (ix) { return { p: ix, n: -1, u: uv ? uv[ix * 2] : 0, v: uv ? uv[ix * 2 + 1] : 0 }; }), flags: 0, tex: t || '', mat: '', sec: faceSec[fi] };
+   }).filter(Boolean);
+    return { resolution: resolution, points: pts, normals: new Float32Array(0), faces: outFaces, selections: [], nPoints: vc, nFaces: outFaces.length, noUV: !uv };
+  }
+
+
+  // ---------- OBJ/MTL lesen ----------
+  function text(buf) { return new TextDecoder('utf-8').decode(buf); }
+  function parseMTL(src) {
+    var mats = {}, cur = null;
+    String(src).split(/\r?\n/).forEach(function (line) {
+      var t = line.trim(); if (!t || t[0] === '#') return;
+      var sp = t.split(/\s+/), k = sp[0].toLowerCase();
+      if (k === 'newmtl') { cur = { name: t.slice(7).trim(), map: '', kd: null }; mats[cur.name] = cur; }
+      else if (!cur) return;
+      else if (k === 'kd') cur.kd = [+sp[1], +sp[2], +sp[3]];
+      else if (k === 'map_kd') {
+        // Optionen wie -s 1 1 1 überspringen, Rest ist der Dateiname
+        var rest = t.slice(6).trim(), m = /^(?:-\w+(?:\s+[-\d.]+)*\s+)*(.+)$/.exec(rest);
+        cur.map = (m ? m[1] : rest).trim();
+      }
+    });
+    return mats;
+  }
+  function parseOBJ(buf) {
+    var src = typeof buf === 'string' ? buf : text(buf);
+    var vs = [], vts = [], faces = [], mtllib = [], cur = '';
+    var lines = src.split(/\r?\n/);
+    for (var i = 0; i < lines.length; i++) {
+      var t = lines[i]; if (!t) continue;
+      var c0 = t.charCodeAt(0); if (c0 === 35) continue;
+      var sp = t.trim().split(/\s+/), k = sp[0];
+      if (k === 'v') vs.push(+sp[1], +sp[2], -(+sp[3]));
+      else if (k === 'vt') vts.push(+sp[1], +(sp[2] || 0));
+      else if (k === 'f') {
+        var nv = vs.length / 3, nt = vts.length / 2, cs = [];
+        for (var j = 1; j < sp.length; j++) {
+          var q = sp[j].split('/'), pi = parseInt(q[0], 10), ti = q[1] ? parseInt(q[1], 10) : NaN;
+          if (pi < 0) pi = nv + pi + 1; if (ti < 0) ti = nt + ti + 1;
+          if (!(pi >= 1 && pi <= nv)) throw new Error('OBJ-Datei beschädigt (Zeile ' + (i + 1) + ').');
+          var u = 0, v = 0; if (ti >= 1 && ti <= nt) { u = vts[(ti - 1) * 2]; v = 1 - vts[(ti - 1) * 2 + 1]; }
+          cs.push({ p: pi - 1, n: -1, u: u, v: v });
+        }
+        if (cs.length >= 3) faces.push({ v: cs.reverse(), flags: 0, tex: '', mat: cur });
+      }
+      else if (k === 'usemtl') cur = t.trim().slice(7).trim();
+      else if (k === 'mtllib') mtllib.push(t.trim().slice(7).trim());
+    }
+    if (!faces.length) throw new Error('In der OBJ-Datei wurden keine Flächen gefunden.');
+    var lod = { resolution: 0, points: new Float32Array(vs), normals: new Float32Array(0), faces: faces, selections: [], nPoints: vs.length / 3, nFaces: faces.length, name: 'Modell', visual: true, index: 0 };
+    return { lods: [lod], obj: true, mtllib: mtllib };
+  }
+  function applyMTL(model, mats) {
+    model.lods.forEach(function (l) { l.faces.forEach(function (f) {
+      var m = mats[f.mat]; if (!m) return;
+      if (m.map) f.tex = m.map;
+    }); });
+  }
+
   // ---------- Umrechnung ins OBJ-Koordinatensystem ----------
   // Arma: linkshändig, Y oben. OBJ/Blender: rechtshändig, Y oben -> Z spiegeln.
   function prepareLod(lod, opt) {
@@ -297,7 +822,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     });
     var reverse = vol < 0;
     if (opt.flip) reverse = !reverse;
-    var faces = lod.faces.map(function (f) { return reverse ? { v: f.v.slice().reverse(), tex: f.tex, mat: f.mat } : f; });
+    var faces = lod.faces.map(function (f) { return reverse ? { v: f.v.slice().reverse(), tex: f.tex, mat: f.mat, sec: f.sec } : f; });
     // Normalen an die Flächen anpassen
     var agree = 0, disagree = 0;
     faces.forEach(function (f) {
@@ -321,22 +846,29 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     var m = /color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(tex || '');
     return m ? [+m[1], +m[2], +m[3], +m[4]] : null;
   }
-  function materialKey(f) { return (f.tex || '') + '|' + (f.mat || ''); }
+  function materialKey(f) {
+    if (!f.tex && !f.mat) return '#teil' + (f.sec != null && f.sec >= 0 ? f.sec : '');
+    return (f.tex || '') + '|' + (f.mat || '');
+  }
+  // gut unterscheidbare Farben für Teile ohne Textur (gleich in Vorschau und Blender)
+  var PALETTE = [[0.95,0.45,0.2],[0.25,0.6,0.95],[0.95,0.8,0.2],[0.6,0.35,0.9],[0.3,0.85,0.5],[0.95,0.35,0.6],[0.2,0.8,0.85],[0.7,0.6,0.4],[0.55,0.85,0.25],[0.9,0.55,0.95]];
+  function autoColor(key) { var h = 0; for (var i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0; return PALETTE[h % PALETTE.length]; }
 
   function collectMaterials(model, lodIndexes) {
     var map = {}, list = [], used = {};
     lodIndexes.forEach(function (li) {
       model.lods[li].faces.forEach(function (f) {
         var k = materialKey(f);
-        if (map[k]) return;
+        if (map[k]) { map[k].faces++; return; }
         var nm;
-        if (!f.tex && !f.mat) nm = 'ohne_textur';
-        else if (f.tex && f.tex.charAt(0) === '#') nm = 'farbe';
-        else nm = stripExt(baseName(f.tex || f.mat));
+        if (!f.tex && !f.mat) nm = 'ohne_textur_' + (list.filter(function (x) { return x.key.indexOf('#teil') === 0; }).length + 1);
+        else if (f.tex && f.tex.charAt(0) === '#' && !f.mat) nm = 'farbe';
+        else if (f.tex && f.tex.charAt(0) !== '#') nm = stripExt(baseName(f.tex));
+        else nm = stripExt(baseName(f.mat));
         nm = safeName(nm);
         var base = nm, c = 2; while (used[nm]) nm = base + '_' + (c++);
         used[nm] = 1;
-        var m = { key: k, name: nm, tex: f.tex, mat: f.mat, color: procColor(f.tex), image: null };
+        var m = { key: k, name: nm, tex: f.tex, mat: f.mat, color: procColor(f.tex), auto: autoColor(k), image: null, faces: 1 };
         map[k] = m; list.push(m);
       });
     });
@@ -358,7 +890,8 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     lodIdx.forEach(function (li) {
       var lod = model.lods[li], prep = prepareLod(lod, opt);
       var P = prep.P, N = prep.N;
-      o.push('o ' + safeName(lodIdx.length > 1 ? name + '_' + lod.name : name));
+      var objName = safeName(lodIdx.length > 1 ? name + '_' + lod.name : name);
+      if (!opt.split) o.push('o ' + objName);
       for (var i = 0; i < lod.nPoints; i++) o.push('v ' + num(P[i * 3]) + ' ' + num(P[i * 3 + 1]) + ' ' + num(P[i * 3 + 2]));
       var uvMap = {}, uvList = [];
       prep.faces.forEach(function (f) { f.v.forEach(function (c) {
@@ -373,6 +906,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       var groups = {}, order = [];
       prep.faces.forEach(function (f) { var k = materialKey(f); if (!groups[k]) { groups[k] = []; order.push(k); } groups[k].push(f); });
       order.forEach(function (k) {
+        if (opt.split) o.push('o ' + objName + '__' + mats.map[k].name);
         if (opt.mtl !== false) o.push('usemtl ' + mats.map[k].name);
         groups[k].forEach(function (f) {
           o.push('f ' + f.v.map(function (c) {
@@ -391,7 +925,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     var o = ['# ' + name + ' – Materialien'];
     materials.forEach(function (m) {
       o.push('', 'newmtl ' + m.name);
-      var c = m.color || [0.8, 0.8, 0.8, 1];
+      var c = m.image ? [1, 1, 1, m.color ? m.color[3] : 1] : (m.color || m.auto.concat(1));
       o.push('Ka 0 0 0', 'Kd ' + num(c[0]) + ' ' + num(c[1]) + ' ' + num(c[2]), 'Ks 0.1 0.1 0.1', 'Ns 20', 'd ' + num(c[3] == null ? 1 : c[3]), 'illum 2');
       if (m.image) {
         o.push('map_Kd ' + m.image);
@@ -405,17 +939,17 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   }
 
   // ---------- PAA lesen ----------
-  function lzo1x(src, outLen) {
-    var out = new Uint8Array(outLen), op = 0, ip = 0, t, m, state;
-    function lit(n) { for (var i = 0; i < n; i++) out[op++] = src[ip++]; }
-    function cpy(from, n) { if (from < 0) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = out[from + i]; }
+  function lzo1x(src, outLen, loose) {
+    var out = new Uint8Array(outLen), op = 0, ip = 0, t, m, state, srcLen = src.length;
+    function lit(n) { if (ip + n > srcLen || op + n > outLen) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = src[ip++]; }
+    function cpy(from, n) { if (from < 0 || op + n > outLen) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = out[from + i]; }
     if (src[ip] > 17) {
       t = src[ip++] - 17;
       if (t < 4) { lit(t); t = src[ip++]; state = 'match'; }
       else { lit(t); state = 'first'; }
     } else state = 'loop';
     for (;;) {
-      if (op > outLen) throw new Error('LZO-Fehler');
+      if (op > outLen || ip >= srcLen) throw new Error('LZO-Fehler');
       if (state === 'loop') {
         t = src[ip++];
         if (t >= 16) { state = 'match'; continue; }
@@ -444,7 +978,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
           t &= 7;
           if (t === 0) { while (src[ip] === 0) { t += 255; ip++; } t += 7 + src[ip++]; }
           m -= (src[ip] >> 2) + (src[ip + 1] << 6); ip += 2;
-          if (m === op) return out; // Ende
+          if (m === op) { if (loose) { var sub = out.subarray(0, op); sub.consumed = ip; return sub; } if (op !== outLen) throw new Error('LZO-Fehler'); out.consumed = ip; return out; } // Ende
           m -= 0x4000;
           cpy(m, t + 2);
         } else {
@@ -545,7 +1079,8 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       }
     }
     var hasAlpha = false; for (i = 3; i < rgba.length; i += 4) if (rgba[i] < 250) { hasAlpha = true; break; }
-    return { width: w, height: h, rgba: rgba, hasAlpha: hasAlpha };
+    var fmt = { 0xFF01: 'DXT1', 0xFF05: 'DXT5', 0x8888: 'ARGB8888', 0x4444: 'ARGB4444', 0x1555: 'ARGB1555', 0x8080: 'AI88' }[type] || '?';
+    return { width: w, height: h, rgba: rgba, hasAlpha: hasAlpha, format: fmt };
   }
 
   // ---------- ZIP (ohne Kompression) ----------
@@ -575,6 +1110,8 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   }
 
   root.MK = {
+    materialKey: materialKey, autoColor: autoColor, collectMaterials: collectMaterials,
+    parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
     parseP3D: parseP3D, defaultLod: defaultLod, prepareLod: prepareLod, buildOBJ: buildOBJ, buildMTL: buildMTL,
     decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x
   };
@@ -589,53 +1126,76 @@ var $ = function(id){ return document.getElementById(id); };
 var files = [], selected = null, watchFolder = null;
 
 // ---------- Einstellungen ----------
-var S = { auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
+var S = { split:true, closed:{}, theme:'hacker', auto:true, out:'same', outDir:'', lod:'best', mtl:true, paa:true, scale:1, flip:false, watch:'' };
 try { Object.assign(S, JSON.parse(localStorage.getItem('mk-settings') || '{}')); } catch(e){}
 function save(){ try { localStorage.setItem('mk-settings', JSON.stringify(S)); } catch(e){} }
 function applyUI(){
   $('optAuto').checked=S.auto; $('optOut').value=S.out; $('optLod').value=S.lod; $('optMtl').checked=S.mtl;
   $('optPaa').checked=S.paa; $('optScale').value=S.scale; $('optFlip').checked=S.flip;
-  $('outPath').textContent = S.out==='folder' ? (S.outDir || 'Noch kein Ordner gewählt') : '';
-  if(!mk){ $('openOut').style.display='none'; $('outPath').textContent='Im Browser werden die Dateien als ZIP heruntergeladen.'; $('watchRow').style.display='none'; }
+  $('outPath').textContent = S.out==='folder' ? (S.outDir || 'Noch kein Ordner gewählt') : S.out==='ask' ? 'Vor dem Speichern wird nach dem Ordner gefragt.' : '';
+  $('outPick').style.display = (mk && S.out==='folder') ? 'block' : 'none';
+  if(!mk){ $('openOut').style.display='none'; $('saveAs').style.display='none'; $('outPath').textContent='Im Browser werden die Dateien als ZIP heruntergeladen.'; $('watchRow').style.display='none'; }
 }
 applyUI();
 $('optAuto').onchange=function(){ S.auto=this.checked; save(); };
+$('optTheme').value=S.theme; $('optTheme').onchange=function(){ S.theme=this.value; save(); if(window.applyTheme) applyTheme(S.theme); hx('theme → '+S.theme); };
 $('optLod').onchange=function(){ S.lod=this.value; save(); };
 $('optMtl').onchange=function(){ S.mtl=this.checked; save(); };
+$('optSplit').checked=S.split; $('optSplit').onchange=function(){ S.split=this.checked; save(); };
 $('optPaa').onchange=function(){ S.paa=this.checked; save(); };
 $('optScale').onchange=function(){ var v=parseFloat(this.value); S.scale = v>0 ? v : 1; this.value=S.scale; save(); refreshView(); };
 $('optFlip').onchange=function(){ S.flip=this.checked; save(); refreshView(); };
+$('outPick').onclick=async function(){ var d=await mk.pickFolder(); if(d){ S.outDir=d; save(); applyUI(); hx('output → '+d); } };
 $('optOut').onchange=async function(){
   if(this.value==='folder' && mk){
-    var d = await mk.pickFolder(); if(!d){ this.value=S.out; return; } S.outDir=d;
+    if(!S.outDir){ var d = await mk.pickFolder(); if(!d){ this.value=S.out; return; } S.outDir=d; }
   }
   S.out=this.value; save(); applyUI();
 };
 
 if(mk) mk.version().then(function(v){ $('ver').textContent='Version '+v; }); else $('ver').textContent='Browser';
 
+// ---------- Fehlertexte ----------
+function clean(e){
+  var m=String(e && e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/,'');
+  if (e instanceof RangeError || e instanceof TypeError) m='Datei beschädigt oder unbekannter Aufbau ('+m+')';
+  return m;
+}
 // ---------- Statuszeile ----------
 function log(msg, cls){ var l=$('log'); l.textContent=msg; l.className='log '+(cls||''); }
-function showErr(msg){ var e=$('err'); e.textContent=msg||''; e.style.display=msg?'block':'none'; }
+function showErr(msg){
+  var e=$('err'); e.style.display=msg?'flex':'none'; e.innerHTML='';
+  if(!msg) return;
+  var t=document.createElement('span'); t.style.flex='1'; t.textContent=msg; e.appendChild(t);
+  var b=document.createElement('button'); b.className='btn'; b.textContent='Fehler kopieren';
+  b.onclick=function(){ var f=selected; var txt='Melonenkonverter '+$('ver').textContent+'\n'+(f?f.name+' ('+(f.size||0)+' Bytes)\n':'')+msg;
+    try{ navigator.clipboard.writeText(txt); b.textContent='Kopiert ✓'; }catch(x){} };
+  e.appendChild(b);
+}
 
 // ---------- Dateien hinzufügen ----------
 var paaPool = {}; // im Browser mitgezogene Texturen
 async function addEntries(entries){
   var added=[];
+  var hasModel = entries.some(function(e){ return /\.(p3d|obj)$/i.test(e.name); });
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
-    if (low.endsWith('.paa')) { paaPool[low]=en; continue; }
-    if (!low.endsWith('.p3d')) continue;
+    if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
+    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; if (hasModel) continue; }
+    else if (!/\.(p3d|obj)$/.test(low)) continue;
+    var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
-    if (ex) { ex.entry=en; ex.model=null; ex.status='wait'; ex.err=''; added.push(ex); continue; }
-    var f = { id:Math.random().toString(36).slice(2), name:name, path:en.path||'', entry:en, model:null, status:'wait', err:'', lodPick:null, tex:{}, out:'' };
+    if (ex) { ex.entry=en; ex.model=null; ex.img=null; ex.status='wait'; ex.err=''; added.push(ex); continue; }
+    var f = { kind:kind, id:Math.random().toString(36).slice(2), name:name, path:en.path||'', entry:en, model:null, status:'wait', err:'', lodPick:null, tex:{}, out:'' };
     files.push(f); added.push(f);
   }
   render();
+  batchDir=null;
   for (var k=0;k<added.length;k++){
     await load(added[k]);
-    if (S.auto && added[k].model) await convert(added[k]);
+    if (S.auto && (added[k].model || added[k].img)) await convert(added[k]);
   }
+  batchDir=null;
   if (added.length && (!selected || added.indexOf(selected)<0)) select(added[added.length-1]);
   else if (selected) select(selected);
 }
@@ -646,20 +1206,48 @@ async function readEntry(en){
 }
 
 async function load(f){
-  f.status='busy'; render();
+  f.status='busy'; render(); hx('open '+(f.path||f.name)); hxBurst(1800);
   try {
     var buf = await readEntry(f.entry);
-    f.model = MK.parseP3D(buf);
+    f.size = buf.length;
+    if (f.kind==='paa'){
+      f.img = MK.decodePAA(buf);
+      hx('texture '+f.img.format+' · '+f.img.width+'x'+f.img.height+(f.img.hasAlpha?' · alpha':'')+' · '+buf.length+' bytes');
+      f.status='wait'; f.err=''; render(); return;
+    }
+    if (f.kind==='obj'){
+      f.model = MK.parseOBJ(buf);
+      await loadMtl(f);
+      hx('format OBJ · '+f.model.lods[0].nPoints+' vertices · '+f.model.lods[0].nFaces+' faces');
+    } else f.model = MK.parseP3D(buf);
     f.lodPick = null;
+    if (f.kind!=='obj') hx('format '+(f.model.odol?'ODOL v'+f.model.version:'MLOD')+' · '+f.model.lods.length+' LODs · '+buf.length+' bytes');
+    f.model.lods.forEach(function(l,i){ if(i<6) hx('  lod['+i+'] '+l.name+' · vc='+l.nPoints+' · faces='+l.nFaces+(l.failed?' · SKIP':''), l.failed?'w':''); });
     f.status='wait'; f.err='';
     await loadTextures(f);
-  } catch(e){ f.model=null; f.status='err'; f.err=e.message; }
+  } catch(e){ f.model=null; f.img=null; f.status='err'; f.err=clean(e); hx('ERROR '+f.err,'e'); }
   render();
+}
+
+async function loadMtl(f){
+  var names=f.model.mtllib.slice(), mats={};
+  if (!names.length) names=[MK.stripExt(f.name)+'.mtl'];
+  for (var i=0;i<names.length;i++){
+    try {
+      var en=null, base=MK.baseName(names[i]).toLowerCase();
+      if (mk && f.path){ var p=await mk.findTexture(f.path, names[i]); if (p) en={path:p}; }
+      else en=paaPool[base]||null;
+      if (!en) { hx('mtl '+names[i]+' nicht gefunden','w'); continue; }
+      Object.assign(mats, MK.parseMTL(new TextDecoder().decode(await readEntry(en))));
+      hx('mtl '+names[i]+' · '+Object.keys(mats).length+' materials');
+    } catch(e){ hx('mtl '+names[i]+' fehlerhaft','w'); }
+  }
+  MK.applyMTL(f.model, mats);
 }
 
 async function findPaa(f, tex){
   var base = MK.baseName(tex).toLowerCase();
-  if (!/\.paa$|\.pac$/.test(base)) return null;
+  if (!/\.(paa|pac|png|jpe?g|bmp|webp)$/.test(base)) return null;
   if (mk && f.path){
     var p = await mk.findTexture(f.path, tex);
     return p ? { path:p } : null;
@@ -679,9 +1267,9 @@ async function loadTextures(f){
       try {
         var en = await findPaa(f, t);
         if (!en) { f.tex[t]={missing:true}; continue; }
-        var img = MK.decodePAA(await readEntry(en));
-        f.tex[t] = img;
-      } catch(e){ f.tex[t]={error:e.message}; }
+        var bytes = await readEntry(en);
+        f.tex[t] = /\.pa[ac]$/i.test(t) ? MK.decodePAA(bytes) : await decodeImageBytes(bytes);
+      } catch(e){ f.tex[t]={error:clean(e)}; }
     }
   }
 }
@@ -706,20 +1294,21 @@ function rgbaToPng(img){
   });
 }
 
-async function convert(f){
+var batchDir=null;
+async function convert(f, dirOverride){
+  if (f.kind==='paa') return convertPaa(f, dirOverride);
   if (!f.model) return;
-  if (S.out==='folder' && mk && !S.outDir){ showErr('Bitte rechts zuerst einen Speicherordner wählen.'); return; }
-  f.status='busy'; render();
+  f.status='busy'; render(); hxBurst(2500); hxProgress('compile '+f.name);
   try {
-    var base = MK.safeName(MK.stripExt(f.name)), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
+    var base = MK.safeName(MK.stripExt(f.name))+(f.kind==='obj'?'_neu':''), sets=lodSets(f), out=[], multi=sets.length>1, pngDone={}, missing=0;
     for (var s=0;s<sets.length;s++){
       var nm = multi ? base+'_'+MK.safeName(f.model.lods[sets[s][0]].name) : base;
-      var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl });
+      var r = MK.buildOBJ(f.model, { name:nm, lods:sets[s], scale:S.scale, flip:S.flip, mtl:S.mtl, split:S.split });
       if (S.mtl){
         for (var i=0;i<r.materials.length;i++){
-          var m=r.materials[i], img=f.tex[m.tex];
-          if (img && img.rgba && S.paa){
-            var png = MK.safeName(MK.stripExt(MK.baseName(m.tex)))+'.png';
+          var m=r.materials[i], ov=f.override&&f.override[m.key], img=ov ? ov.img : f.tex[m.tex];
+          if (img && img.rgba && (S.paa || ov)){
+            var png = MK.safeName(MK.stripExt(MK.baseName(ov ? ov.name : m.tex)))+'.png';
             m.image=png; m.hasAlpha=img.hasAlpha;
             if (!pngDone[png]){ pngDone[png]=1; out.push({ name:png, data: await rgbaToPng(img) }); }
           } else if (m.tex && m.tex.charAt(0)!=='#') missing++;
@@ -729,9 +1318,11 @@ async function convert(f){
       out.push({ name:nm+'.obj', data:r.obj });
     }
     if (mk && f.path){
-      var dir = await outDir(f);
+      var dir = dirOverride || await outDir(f);
+      if (!dir){ f.status='wait'; render(); log('Speichern abgebrochen'); return; }
       await mk.writeFiles(dir, out);
       f.out = dir;
+      if (f===selected) $('openOut').disabled=false;
       log('✓ '+f.name+' → '+out.filter(function(o){return /\.obj$/.test(o.name);}).map(function(o){return o.name;}).join(', ')+(missing&&S.paa?' · '+missing+' Textur(en) nicht gefunden':''), 'ok');
     } else {
       var blob = MK.makeZip(out), a=document.createElement('a');
@@ -740,55 +1331,102 @@ async function convert(f){
       log('✓ '+f.name+' als ZIP heruntergeladen', 'ok');
     }
     f.status='ok'; f.err='';
-  } catch(e){ f.status='err'; f.err=e.message; log('✗ '+f.name+': '+e.message, 'err'); }
+    out.forEach(function(o){ hx('write '+o.name+' ('+(o.data.length||0)+' bytes) ✓'); });
+  } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err, 'err'); hx('ERROR '+f.err,'e'); }
   render(); if (f===selected) showErr(f.err);
 }
 
 async function outDir(f){
   var dir = f.path.replace(/[\\\/][^\\\/]*$/, '');
-  if (S.out==='sub') return dir + (dir.indexOf('\\')>=0?'\\':'/') + 'OBJ';
-  if (S.out==='folder' && S.outDir) return S.outDir;
+  if (S.out==='sub') return dir + (dir.indexOf('\\')>=0?'\\':'/') + (f.kind==='paa'?'PNG':'OBJ');
+  if (S.out==='folder'){
+    if (!S.outDir){ var d=await mk.pickFolder(); if(!d) return null; S.outDir=d; save(); applyUI(); }
+    return S.outDir;
+  }
+  if (S.out==='ask'){
+    if (!batchDir) batchDir = await mk.pickFolder();
+    return batchDir;
+  }
   return dir;
 }
 
 $('convertAll').onclick = async function(){
-  var todo=files.filter(function(f){ return f.model; });
+  var todo=files.filter(function(f){ return f.checked && (f.model || f.img); });
+  batchDir=null;
   for (var i=0;i<todo.length;i++) await convert(todo[i]);
-  log('✓ '+todo.length+' Datei(en) umgewandelt', 'ok');
+  batchDir=null;
+  log('✓ '+todo.length+' Datei(en) umgewandelt', 'ok'); hx(todo.length+' Datei(en) fertig ✓');
 };
-$('convertOne').onclick = function(){ if (selected) convert(selected); };
+$('convertOne').onclick = function(){ if (selected){ batchDir=null; convert(selected); } };
+$('saveAs').onclick = async function(){ if (!selected || !mk) return; var d=await mk.pickFolder(); if (d) convert(selected, d); };
 $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFolder(selected.out); };
 $('clear').onclick = function(){ files=[]; selected=null; paaPool={}; render(); select(null); };
 
 // ---------- Liste ----------
+var GROUPS=[['p3d','P3D-Modelle'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
+function visible(){
+  var q=($('search').value||'').trim().toLowerCase();
+  return files.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q)>=0; });
+}
+function ready(f){ return !!(f.model || f.img); }
 function render(){
   var L=$('list'); L.innerHTML='';
   if (!files.length){ L.innerHTML='<div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div>'; }
-  files.forEach(function(f){
-    var d=document.createElement('div'); d.className='item'+(f===selected?' sel':'');
-    var sub = f.status==='err' ? 'Fehler' : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
-    if (f.status==='ok') sub='Umgewandelt · '+sub;
-    d.innerHTML='<span class="st '+({ok:'ok',err:'err',busy:'busy'}[f.status]||'')+'"></span><div style="min-width:0"><div class="n"></div><div class="s"></div></div><button class="x" title="Entfernen">✕</button>';
-    d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
-    d.onclick=function(){ select(f); };
-    d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
-    L.appendChild(d);
+  var vis=visible();
+  if (files.length && !vis.length){ L.innerHTML='<div class="empty">Keine Treffer für „<span></span>“</div>'; L.querySelector('span').textContent=$('search').value; }
+  GROUPS.forEach(function(g){
+    var items=vis.filter(function(f){ return (f.kind||'p3d')===g[0]; });
+    if (!items.length) return;
+    var closed=!!(S.closed||{})[g[0]], checked=items.filter(function(f){ return f.checked; }).length;
+    var h=document.createElement('div'); h.className='grp'+(closed?' closed':'');
+    h.innerHTML='<span class="ar">▾</span><input type="checkbox" title="Ganze Gruppe auswählen"><span></span><span class="gc"></span>';
+    h.children[2].textContent=g[1]; h.children[3].textContent=(checked?checked+' / ':'')+items.length;
+    var gcb=h.querySelector('input'); gcb.checked=checked===items.length; gcb.indeterminate=checked>0&&checked<items.length;
+    gcb.onclick=function(ev){ ev.stopPropagation(); var v=this.checked; items.forEach(function(f){ f.checked=v; }); render(); };
+    h.onclick=function(){ S.closed=S.closed||{}; S.closed[g[0]]=!closed; save(); render(); };
+    L.appendChild(h);
+    if (closed) return;
+    items.forEach(function(f){
+      var d=document.createElement('div'); d.className='item'+(f===selected?' sel':'');
+      var sub = f.status==='err' ? 'Fehler' : f.img ? f.img.format+' · '+f.img.width+'×'+f.img.height : (f.model && f.kind==='obj') ? 'OBJ · '+f.model.lods[0].nFaces+' Flächen' : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
+      if (f.status==='ok') sub='Umgewandelt · '+sub;
+      d.innerHTML='<input type="checkbox" class="cb"><span class="st '+({ok:'ok',err:'err',busy:'busy'}[f.status]||'')+'"></span><div style="min-width:0"><div class="n"></div><div class="s"></div></div><button class="x" title="Entfernen">✕</button>';
+      var cb=d.querySelector('.cb'); cb.checked=!!f.checked; cb.disabled=!ready(f);
+      cb.onclick=function(ev){ ev.stopPropagation(); f.checked=this.checked; render(); };
+      d.querySelector('.n').textContent=f.name; d.querySelector('.s').textContent=sub; d.title=f.path||f.name;
+      d.onclick=function(){ select(f); };
+      d.querySelector('.x').onclick=function(ev){ ev.stopPropagation(); files.splice(files.indexOf(f),1); if (selected===f) select(null); render(); };
+      L.appendChild(d);
+    });
   });
   $('count').textContent = files.length ? files.length : '';
-  $('convertAll').disabled = !files.some(function(f){ return f.model; });
+  var rv=vis.filter(ready), nChecked=files.filter(function(f){ return f.checked && ready(f); }).length;
+  var sa=$('selAll'); sa.checked = rv.length>0 && rv.every(function(f){ return f.checked; }); sa.indeterminate = !sa.checked && rv.some(function(f){ return f.checked; }); sa.disabled=!rv.length;
+  $('convertAll').disabled = !nChecked;
+  $('convertAll').textContent = nChecked ? nChecked+' umwandeln' : 'Auswahl umwandeln';
 }
+$('search').oninput=render;
+$('search').onkeydown=function(e){ if (e.key==='Escape'){ this.value=''; render(); } };
+$('selAll').onchange=function(){ var v=this.checked; visible().filter(ready).forEach(function(f){ f.checked=v; }); render(); };
+window.addEventListener('keydown',function(e){ if (e.ctrlKey && (e.key==='f'||e.key==='F')){ e.preventDefault(); $('search').focus(); } });
 
 function select(f){
   selected=f; render();
   var sel=$('lodSel'); sel.innerHTML='';
   showErr(f && f.err);
-  $('convertOne').disabled = !(f && f.model);
+  $('convertOne').disabled = !(f && (f.model || f.img));
   $('openOut').disabled = !(f && f.out && mk);
+  $('saveAs').disabled = !(f && (f.model || f.img) && mk);
+  showImage(f && f.img ? f : null);
+  if (!f || !f.model) renderMats(null);
+  if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
+    $('viewInfo').innerHTML='<b></b><br>Textur · '+f.img.format+' · '+f.img.width+' × '+f.img.height+' Pixel'+(f.img.hasAlpha?' · mit Transparenz':'');
+    $('viewInfo').querySelector('b').textContent=f.name; return; }
   if (!f || !f.model){ sel.disabled=true; viewer.set(null); $('viewInfo').innerHTML=''; $('viewEmpty').style.display= f ? 'none':'flex'; return; }
   $('viewEmpty').style.display='none';
   var def=MK.defaultLod(f.model);
   var o=document.createElement('option'); o.value=''; o.textContent='Automatisch (laut Einstellung)'; sel.appendChild(o);
-  f.model.lods.forEach(function(l){ var op=document.createElement('option'); op.value=l.index; op.textContent=l.name+' – '+l.nFaces+' Flächen'+(l.index===def?' ★':''); sel.appendChild(op); });
+  f.model.lods.forEach(function(l){ var op=document.createElement('option'); op.value=l.index; op.textContent=l.name+' – '+(l.failed?'nicht lesbar':l.nFaces+' Flächen')+(l.index===def?' ★':''); sel.appendChild(op); });
   sel.value = f.lodPick==null ? '' : f.lodPick; sel.disabled=false;
   refreshView();
 }
@@ -798,9 +1436,128 @@ function refreshView(){
   var f=selected; if (!f || !f.model) return;
   var li = f.lodPick!=null ? f.lodPick : MK.defaultLod(f.model), lod=f.model.lods[li];
   viewer.set(f, li);
+  renderMats(f, li);
   var texCount=0, texFound=0; Object.keys(f.tex).forEach(function(k){ texCount++; if (f.tex[k].rgba) texFound++; });
-  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'');
+  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
   $('viewInfo').querySelector('b').textContent=f.name;
+}
+
+// ---------- Materialliste ----------
+function texFor(f,key,texPath){ return (f.override && f.override[key] && f.override[key].img) || (texPath && f.tex[texPath]) || null; }
+var thumbCache=new WeakMap();
+function thumb(img){
+  if (thumbCache.has(img)) return thumbCache.get(img);
+  var c=document.createElement('canvas'), k=Math.min(1,64/Math.max(img.width,img.height)); c.width=Math.max(1,img.width*k|0); c.height=Math.max(1,img.height*k|0);
+  var src=document.createElement('canvas'); src.width=img.width; src.height=img.height;
+  var d=src.getContext('2d').createImageData(img.width,img.height); d.data.set(img.rgba); src.getContext('2d').putImageData(d,0,0);
+  c.getContext('2d').drawImage(src,0,0,c.width,c.height);
+  var url=c.toDataURL(); thumbCache.set(img,url); return url;
+}
+var texTarget=null;
+function renderMats(f, li){
+  var P=$('matPanel'), L=$('matList');
+  if (!f || !f.model){ P.style.display='none'; return; }
+  var mats=MK.collectMaterials(f.model,[li]).list;
+  P.style.display = mats.length ? 'flex' : 'none';
+  $('matCount').textContent=mats.length; L.innerHTML='';
+  mats.forEach(function(m){
+    var img=texFor(f,m.key,m.tex), ov=f.override&&f.override[m.key];
+    var d=document.createElement('div'); d.className='mat';
+    var sw=document.createElement('div'); sw.className='sw';
+    if (img && img.rgba) sw.style.backgroundImage='url('+thumb(img)+')';
+    else { var c=m.color||m.auto; sw.style.background='rgb('+(c[0]*255|0)+','+(c[1]*255|0)+','+(c[2]*255|0)+')'; }
+    var info=document.createElement('div'); info.style.minWidth='0';
+    var n=document.createElement('div'); n.className='mn'; n.textContent=m.name;
+    var st=document.createElement('div'); st.className='ms';
+    var state=document.createElement('span');
+    if (ov){ state.className='ok'; state.textContent='✓ '+ov.name; }
+    else if (img && img.rgba){ state.className='ok'; state.textContent='✓ Textur gefunden'; }
+    else if (m.color){ state.textContent='Farbe'; }
+    else if (m.tex){ state.className='no'; state.textContent='✗ Textur fehlt'; }
+    else { state.className='no'; state.textContent='ohne Textur'; }
+    var b=document.createElement('button'); b.textContent= ov ? 'ändern' : 'zuweisen'; b.title='Textur für dieses Teil wählen (PAA, PNG, JPG …)';
+    b.onclick=function(){ texTarget={f:f,key:m.key}; $('texIn').click(); };
+    st.appendChild(state); st.appendChild(document.createTextNode(m.faces+' Flächen')); st.appendChild(b);
+    if (ov){ var x=document.createElement('button'); x.textContent='✕'; x.title='Zuweisung entfernen'; x.onclick=function(){ delete f.override[m.key]; refreshView(); }; st.appendChild(x); }
+    info.appendChild(n); info.appendChild(st);
+    d.title=(m.tex||'keine Textur im Modell')+(m.mat?'\n'+m.mat:'');
+    d.appendChild(sw); d.appendChild(info);
+    d.onmouseenter=function(){ viewer.highlight && viewer.highlight(m.key); };
+    d.onmouseleave=function(){ viewer.highlight && viewer.highlight(null); };
+    L.appendChild(d);
+  });
+}
+async function decodeImageBytes(bytes){
+  var bmp=await createImageBitmap(new Blob([bytes]));
+  return bitmapToImg(bmp);
+}
+function bitmapToImg(bmp){
+  var c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height; var ctx=c.getContext('2d'); ctx.drawImage(bmp,0,0);
+  var data=ctx.getImageData(0,0,c.width,c.height).data, hasAlpha=false; for (var i=3;i<data.length;i+=4) if (data[i]<250){ hasAlpha=true; break; }
+  return { width:c.width, height:c.height, rgba:new Uint8Array(data.buffer.slice(0)), hasAlpha:hasAlpha, format:'Bild' };
+}
+async function decodeImageFile(file, path){
+  var low=(file? file.name : path).toLowerCase();
+  if (/\.pa[ac]$/.test(low)) return MK.decodePAA(file ? new Uint8Array(await file.arrayBuffer()) : await mk.readFile(path));
+  var bmp=await createImageBitmap(file);
+  var c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height; var ctx=c.getContext('2d'); ctx.drawImage(bmp,0,0);
+  var data=ctx.getImageData(0,0,c.width,c.height).data, hasAlpha=false; for (var i=3;i<data.length;i+=4) if (data[i]<250){ hasAlpha=true; break; }
+  return { width:c.width, height:c.height, rgba:new Uint8Array(data.buffer.slice(0)), hasAlpha:hasAlpha, format:'Bild' };
+}
+$('texIn').onchange=async function(){
+  var file=this.files[0]; this.value=''; if (!file || !texTarget) return;
+  try {
+    var img=await decodeImageFile(file);
+    var t=texTarget; t.f.override=t.f.override||{}; t.f.override[t.key]={ img:img, name:file.name };
+    hx('assign '+file.name+' → '+t.key);
+    if (t.f===selected) refreshView();
+    log('Textur zugewiesen: '+file.name+' – beim nächsten Umwandeln kommt sie mit.', 'ok');
+  } catch(e){ showErr('Textur konnte nicht gelesen werden: '+clean(e)); }
+};
+
+// ---------- Bildansicht für Texturen ----------
+var imgCache=null;
+function showImage(f){
+  var c=$('img2d'), v=$('view');
+  c.style.display = f ? 'block' : 'none'; v.style.visibility = f ? 'hidden' : 'visible';
+  if (!f){ imgCache=null; return; }
+  if (!imgCache || imgCache.f!==f){
+    var src=document.createElement('canvas'); src.width=f.img.width; src.height=f.img.height;
+    var d=src.getContext('2d').createImageData(f.img.width,f.img.height); d.data.set(f.img.rgba); src.getContext('2d').putImageData(d,0,0);
+    imgCache={f:f, src:src};
+  }
+  drawImage();
+}
+function drawImage(){
+  if (!imgCache) return;
+  var c=$('img2d'), dpr=window.devicePixelRatio||1, w=c.clientWidth*dpr|0, h=c.clientHeight*dpr|0; c.width=w; c.height=h;
+  var ctx=c.getContext('2d'), sz=12*dpr;
+  for (var y=0;y<h;y+=sz) for (var x=0;x<w;x+=sz){ ctx.fillStyle=((x/sz+y/sz)&1)?'#1a2330':'#121a24'; ctx.fillRect(x,y,sz,sz); }
+  var s=imgCache.src, k=Math.min((w-60*dpr)/s.width,(h-90*dpr)/s.height); if (k>8) k=8;
+  ctx.imageSmoothingEnabled = k<1; ctx.drawImage(s,(w-s.width*k)/2,(h-s.height*k)/2+15*dpr,s.width*k,s.height*k);
+}
+window.addEventListener('resize',drawImage);
+
+async function convertPaa(f, dirOverride){
+  if (!f.img) return;
+  f.status='busy'; render(); hxBurst(1200); hxProgress('encode '+f.name);
+  try {
+    var nm = MK.safeName(MK.stripExt(f.name))+'.png', out=[{ name:nm, data: await rgbaToPng(f.img) }];
+    if (mk && f.path){
+      var dir = dirOverride || await outDir(f);
+      if (!dir){ f.status='wait'; render(); log('Speichern abgebrochen'); return; }
+      await mk.writeFiles(dir, out); f.out=dir;
+      if (f===selected) $('openOut').disabled=false;
+      log('✓ '+f.name+' → '+nm, 'ok');
+    } else {
+      var a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([out[0].data],{type:'image/png'})); a.download=nm; a.click();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+      log('✓ '+nm+' heruntergeladen', 'ok');
+    }
+    hx('write '+nm+' ('+out[0].data.length+' bytes) ✓');
+    f.status='ok'; f.err='';
+  } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err, 'err'); hx('ERROR '+f.err,'e'); }
+  render(); if (f===selected) showErr(f.err);
 }
 
 // ---------- Reinziehen / Auswählen ----------
@@ -844,12 +1601,13 @@ var viewer = (function(){
   function sh(type,src){ var s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); return s; }
   var prog=gl.createProgram();
   gl.attachShader(prog, sh(gl.VERTEX_SHADER,'#version 300 es\nin vec3 p;in vec3 n;in vec2 t;uniform mat4 M;out vec3 vn;out vec2 vt;void main(){vn=n;vt=t;gl_Position=M*vec4(p,1.);}'));
-  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;in vec3 vn;in vec2 vt;uniform sampler2D tex;uniform vec3 L;uniform bool back;out vec4 o;void main(){vec3 n=normalize(vn);if(!gl_FrontFacing)n=-n;vec4 c=texture(tex,vt);if(c.a<.3)discard;float d=max(dot(n,L),0.)*.75+.3;vec3 col=c.rgb*d;if(back&&!gl_FrontFacing)col=mix(col,vec3(.95,.2,.2),.75);o=vec4(col,1.);}'));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;in vec3 vn;in vec2 vt;uniform sampler2D tex;uniform vec3 L;uniform bool back;uniform float dim;out vec4 o;void main(){vec3 n=normalize(vn);if(!gl_FrontFacing)n=-n;vec4 c=texture(tex,vt);if(c.a<.3)discard;float d=max(dot(n,L),0.)*.75+.3;vec3 col=c.rgb*d;if(back&&!gl_FrontFacing)col=mix(col,vec3(.95,.2,.2),.75);o=vec4(col*dim,1.);}'));
   gl.linkProgram(prog);
   var lineProg=gl.createProgram();
   gl.attachShader(lineProg, sh(gl.VERTEX_SHADER,'#version 300 es\nin vec3 p;uniform mat4 M;void main(){gl_Position=M*vec4(p,1.);}'));
   gl.attachShader(lineProg, sh(gl.FRAGMENT_SHADER,'#version 300 es\nprecision mediump float;out vec4 o;void main(){o=vec4(.22,.24,.27,1.);}'));
   gl.linkProgram(lineProg);
+  var hiKey=null, texOf={};
   var groups=[], grid=null, cam={yaw:0.7,pitch:0.35,dist:6,target:[0,1,0]}, radius=3, texCache=new Map();
   var white=mkTex(1,1,new Uint8Array([200,200,200,255]));
   function mkTex(w,h,data){ var t=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,t); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,w,h,0,gl.RGBA,gl.UNSIGNED_BYTE,data); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT); return t; }
@@ -865,9 +1623,9 @@ var viewer = (function(){
     groups.forEach(function(g){ gl.deleteBuffer(g.buf); if (g.own) gl.deleteTexture(g.tex); }); groups=[];
     if (!f){ draw(); return; }
     var lod=f.model.lods[li], prep=MK.prepareLod(lod,{scale:S.scale, flip:S.flip}), P=prep.P;
-    var by={}, order=[], min=[1e9,1e9,1e9], max=[-1e9,-1e9,-1e9];
+    var by={}, order=[], min=[1e9,1e9,1e9], max=[-1e9,-1e9,-1e9]; texOf={};
     prep.faces.forEach(function(fc){
-      var k=fc.tex||''; if (!by[k]){ by[k]=[]; order.push(k); }
+      var k=MK.materialKey(fc); if (!by[k]){ by[k]=[]; order.push(k); texOf[k]=fc.tex||''; }
       var arr=by[k], v=fc.v;
       var a=v[0].p*3,b=v[1].p*3,c=v[2].p*3;
       var ux=P[b]-P[a],uy=P[b+1]-P[a+1],uz=P[b+2]-P[a+2],wx=P[c]-P[a],wy=P[c+1]-P[a+1],wz=P[c+2]-P[a+2];
@@ -879,10 +1637,10 @@ var viewer = (function(){
     });
     order.forEach(function(k){
       var b=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,b); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(by[k]),gl.STATIC_DRAW);
-      var img=f.tex[k], tex=white, own=false;
+      var img=texFor(f,k,texOf[k]), tex=white, own=false;
       if (img && img.rgba){ tex=mkTex(img.width,img.height,img.rgba); own=true; }
-      else { var pc=/color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(k); if (pc){ tex=colTex([+pc[1],+pc[2],+pc[3]]); own=true; } }
-      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own});
+      else { var pc=/color\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i.exec(texOf[k]); tex=colTex(pc?[+pc[1],+pc[2],+pc[3]]:MK.autoColor(k)); own=true; }
+      groups.push({buf:b,count:by[k].length/8,tex:tex,own:own,key:k});
     });
     if (min[0]>max[0]){ min=[-1,0,-1]; max=[1,1,1]; }
     var nid = f.id+':'+li;
@@ -903,7 +1661,7 @@ var viewer = (function(){
   function draw(){
     var dpr=window.devicePixelRatio||1, w=cv.clientWidth*dpr|0, h=cv.clientHeight*dpr|0;
     if (cv.width!==w||cv.height!==h){ cv.width=w; cv.height=h; }
-    gl.viewport(0,0,w,h); gl.clearColor(.063,.071,.078,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+    gl.viewport(0,0,w,h); gl.clearColor(.043,.067,.102,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
     if (!groups.length) return;
     var e=eye(), M=mul(persp(0.8,w/Math.max(h,1),radius*0.01,radius*60), lookAt(e,cam.target));
     if (grid){ gl.useProgram(lineProg); gl.uniformMatrix4fv(gl.getUniformLocation(lineProg,'M'),false,M);
@@ -919,6 +1677,7 @@ var viewer = (function(){
       gl.enableVertexAttribArray(an); gl.vertexAttribPointer(an,3,gl.FLOAT,false,32,12);
       gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at,2,gl.FLOAT,false,32,24);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,g.tex);
+      gl.uniform1f(gl.getUniformLocation(prog,'dim'), hiKey && g.key!==hiKey ? 0.22 : 1.0);
       gl.drawArrays(gl.TRIANGLES,0,g.count);
     });
   }
@@ -934,10 +1693,10 @@ var viewer = (function(){
     draw();
   });
   cv.addEventListener('wheel',function(e){ e.preventDefault(); cam.dist*=Math.pow(1.0015,e.deltaY); cam.dist=Math.max(radius*0.05,Math.min(radius*40,cam.dist)); draw(); },{passive:false});
-  window.addEventListener('keydown',function(e){ if ((e.key==='f'||e.key==='F') && selected){ viewer._last=null; refreshView(); } });
+  window.addEventListener('keydown',function(e){ if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return; if ((e.key==='f'||e.key==='F') && !e.ctrlKey && selected){ viewer._last=null; refreshView(); } });
   $('showBack').onchange=draw;
   window.addEventListener('resize',draw);
-  return { set:set, draw:draw };
+  return { set:set, draw:draw, highlight:function(k){ hiKey=k||null; draw(); } };
 })();
 render();
 })();

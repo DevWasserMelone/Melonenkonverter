@@ -205,20 +205,33 @@ ipcMain.handle('l:publish', async (e, d) => {
 // ---------- Programm (Konverter) ----------
 ipcMain.handle('a:version', () => current().version);
 ipcMain.handle('a:pickFiles', async () => {
-  const r = await dialog.showOpenDialog(appWin, { title: 'P3D-Dateien wählen', filters: [{ name: 'P3D-Modelle', extensions: ['p3d'] }], properties: ['openFile', 'multiSelections'] });
+  const r = await dialog.showOpenDialog(appWin, { title: 'Dateien wählen', filters: [{ name: 'P3D, OBJ und PAA', extensions: ['p3d', 'obj', 'paa', 'pac'] }], properties: ['openFile', 'multiSelections'] });
   return r.canceled ? [] : r.filePaths;
 });
 ipcMain.handle('a:pickFolder', async () => {
   const r = await dialog.showOpenDialog(appWin, { title: 'Ordner wählen', properties: ['openDirectory', 'createDirectory'] });
   return r.canceled ? null : r.filePaths[0];
 });
-ipcMain.handle('a:read', (e, p) => new Uint8Array(fs.readFileSync(p)));
+function fsMsg(err, what) {
+  const c = err && err.code;
+  if (c === 'ENOENT') return what + ': Datei oder Ordner nicht gefunden.';
+  if (c === 'EACCES' || c === 'EPERM') return what + ': Keine Berechtigung. Wähle rechts einen anderen Speicherort (z. B. „Eigener Ordner“).';
+  if (c === 'EBUSY') return what + ': Die Datei ist gerade in einem anderen Programm geöffnet (z. B. Blender). Schließ sie dort und versuch es nochmal.';
+  if (c === 'ENOSPC') return what + ': Die Festplatte ist voll.';
+  if (c === 'EROFS') return what + ': Der Ordner ist schreibgeschützt.';
+  return what + ': ' + (err && err.message || err);
+}
+ipcMain.handle('a:read', (e, p) => {
+  try { return new Uint8Array(fs.readFileSync(p)); } catch (err) { throw new Error(fsMsg(err, 'Lesen fehlgeschlagen')); }
+});
 ipcMain.handle('a:write', (e, dir, files) => {
-  fs.mkdirSync(dir, { recursive: true });
-  for (const f of files) {
-    const name = path.basename(f.name);
-    fs.writeFileSync(path.join(dir, name), typeof f.data === 'string' ? f.data : Buffer.from(f.data));
-  }
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    for (const f of files) {
+      const name = path.basename(f.name);
+      fs.writeFileSync(path.join(dir, name), typeof f.data === 'string' ? f.data : Buffer.from(f.data));
+    }
+  } catch (err) { throw new Error(fsMsg(err, 'Speichern fehlgeschlagen')); }
   return true;
 });
 ipcMain.handle('a:openFolder', (e, dir) => shell.openPath(dir));
@@ -258,7 +271,7 @@ ipcMain.handle('a:watch', (e, dir) => {
   const timers = new Map(), last = new Map();
   try {
     watcher = fs.watch(dir, { recursive: true }, (ev, fn) => {
-      if (!fn || !/\.p3d$/i.test(fn)) return;
+      if (!fn || !/\.(p3d|paa|pac)$/i.test(fn)) return;
       const full = path.join(dir, fn);
       clearTimeout(timers.get(full));
       timers.set(full, setTimeout(function check(prevSize) {
