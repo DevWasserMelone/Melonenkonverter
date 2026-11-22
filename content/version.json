@@ -1,5 +1,5 @@
 {
-  "version": "1.0.9",
+  "version": "1.0.10",
   "date": "2026-11-22",
-  "changelog": ""
+  "changelog": "🖼 Melonenkonverter 1.0.10\n\n✨ Neu\n• PAA-Texturen direkt in PNG umwandeln (mit Transparenz)\n• Bildvorschau für Texturen mit Format und Größe"
 }
