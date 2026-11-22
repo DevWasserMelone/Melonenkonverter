@@ -289,6 +289,12 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     return { data: out, end: p + out.consumed };
   }
 
+  function odolLoose(u8, p, cap, ver) {
+    if (ver < 64 || u8[p] !== 1) return null;
+    var out = lzo1x(u8.subarray(p + 1, Math.min(u8.length, p + 1 + cap * 2 + 4096)), cap, true);
+    return { data: out, end: p + 1 + out.consumed };
+  }
+
   function readODOL(r) {
     var u8 = r.u8, dv = r.dv, size = u8.length;
     r.p = 4;
@@ -442,7 +448,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
     var counts = [vc]; if (maxIdx + 1 !== vc) counts.push(maxIdx + 1);
     var ext = Math.max(bmax[0] - bmin[0], bmax[1] - bmin[1], bmax[2] - bmin[2]);
     var boxOk = isFinite(ext) && ext > 0 && ext < 1e5, tol = 0.02 + 0.01 * (boxOk ? ext : 0);
-    var cands = 0, why = {};
+    var cands = 0, why = {}, diag = [];
     function score(arr) {
       var good = 0, step = Math.max(1, Math.floor(faces.length / 400)), tot = 0;
       for (var fi = 0; fi < faces.length; fi += step) {
@@ -475,6 +481,29 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
         if (sc < 0.6) { why.form = (why.form || 0) + 1; return; }
         res = { pts: out, score: sc + (inBox ? 1 : 0), cnt: cnt };
       });
+      if (res) return res;
+      // andere Speicherform: Größe aus den entpackten Daten ablesen
+      [0, 1].forEach(function (extra) {
+        if (res) return;
+        var dd; try { dd = odolLoose(u8, p0 + 4 + extra, cnt * 16 + 64, ver); } catch (ex) { dd = null; }
+        if (!dd) return;
+        var L = dd.data.length, es = L / cnt;
+        diag.push('@' + (p0 - start) + ':' + L + 'B/' + (Math.round(es * 100) / 100));
+        if (es !== 6 && es !== 8) return;
+        var lo = bmin, hi = bmax;
+        if (p0 - 24 >= start) {
+          var q = [0, 1, 2, 3, 4, 5].map(function (k) { return F32(p0 - 24 + k * 4); });
+          if (q.every(function (x) { return f32ok(x, 1e5); }) && q[0] <= q[3] && q[1] <= q[4] && q[2] <= q[5] && (q[3] - q[0]) + (q[4] - q[1]) > 0) { lo = q.slice(0, 3); hi = q.slice(3); }
+        }
+        var qv = new DataView(dd.data.buffer, dd.data.byteOffset, L), out = new Float32Array(cnt * 3);
+        for (var i3 = 0; i3 < cnt; i3++) for (var ax = 0; ax < 3; ax++) {
+          var sv = qv.getInt16(i3 * es + ax * 2, true);
+          out[i3 * 3 + ax] = lo[ax] + (hi[ax] - lo[ax]) * (sv + 32767) / 65534;
+        }
+        var sc = score(out);
+        if (sc >= 0.6) res = { pts: out, score: sc + 0.5, cnt: cnt };
+        else why.form = (why.form || 0) + 1;
+      });
       return res;
     }
     var best = null;
@@ -482,7 +511,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
       var cand = tryPos(p);
       if (cand && (!best || cand.score > best.score)) { best = cand; if (best.score >= 1.95) break; }
     }
-    if (!best) throw new Error('Punkte nicht gefunden (vc=' + vc + ', max=' + (maxIdx + 1) + ', Box ' + bmin.map(function (x) { return +x.toFixed(2); }) + '/' + bmax.map(function (x) { return +x.toFixed(2); }) + ', Kandidaten ' + cands + ' ' + JSON.stringify(why) + ', uv ' + (uv ? 'ja' : 'nein') + ')');
+    if (!best) throw new Error('Punkte nicht gefunden (vc=' + vc + ', max=' + (maxIdx + 1) + ', Box ' + bmin.map(function (x) { return +x.toFixed(2); }) + '/' + bmax.map(function (x) { return +x.toFixed(2); }) + ', Kandidaten ' + cands + ' ' + JSON.stringify(why) + ', uv ' + (uv ? 'ja@' + (uvEnd - start) : 'nein') + ', ' + diag.slice(0, 8).join(' ') + ')');
     var pts = best.pts; vc = best.cnt;
     if (uv && uv.length / 2 !== vc) uv = null;
 
@@ -624,7 +653,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
   }
 
   // ---------- PAA lesen ----------
-  function lzo1x(src, outLen) {
+  function lzo1x(src, outLen, loose) {
     var out = new Uint8Array(outLen), op = 0, ip = 0, t, m, state, srcLen = src.length;
     function lit(n) { if (ip + n > srcLen || op + n > outLen) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = src[ip++]; }
     function cpy(from, n) { if (from < 0 || op + n > outLen) throw new Error('LZO-Fehler'); for (var i = 0; i < n; i++) out[op++] = out[from + i]; }
@@ -663,7 +692,7 @@ footer .ok{color:var(--green)} footer .err{color:var(--red)}
           t &= 7;
           if (t === 0) { while (src[ip] === 0) { t += 255; ip++; } t += 7 + src[ip++]; }
           m -= (src[ip] >> 2) + (src[ip + 1] << 6); ip += 2;
-          if (m === op) { if (op !== outLen) throw new Error('LZO-Fehler'); out.consumed = ip; return out; } // Ende
+          if (m === op) { if (loose) { var sub = out.subarray(0, op); sub.consumed = ip; return sub; } if (op !== outLen) throw new Error('LZO-Fehler'); out.consumed = ip; return out; } // Ende
           m -= 0x4000;
           cpy(m, t + 2);
         } else {
