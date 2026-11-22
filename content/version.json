@@ -1,5 +1,5 @@
 {
-  "version": "1.0.10",
+  "version": "1.0.12",
   "date": "2026-11-22",
-  "changelog": "🖼 Melonenkonverter 1.0.10\n\n✨ Neu\n• PAA-Texturen direkt in PNG umwandeln (mit Transparenz)\n• Bildvorschau für Texturen mit Format und Größe"
+  "changelog": "🎨 Melonenkonverter 1.0.12\n\n✨ Neu\n• Materialliste mit Texturvorschau: zeigt, welche Texturen gefunden wurden und welche fehlen\n• Mit der Maus über ein Material fahren → das Teil leuchtet in der 3D-Vorschau auf\n• Fehlende Texturen direkt im Konverter zuweisen (PAA, PNG, JPG)\n• In Blender ist jedes Teil ein eigenes Objekt mit dem Namen seiner Textur\n• Teile ohne Textur bekommen eigene Farben"
 }
