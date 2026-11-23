@@ -1,5 +1,5 @@
 {
-  "version": "1.0.24",
+  "version": "1.0.25",
   "date": "2026-11-23",
-  "changelog": "✨ Melonenkonverter 1.0.24\n\n✨ Neu\n• Online-KI mit kostenlosem Pollinations-Konto (tägliches Gratis-Guthaben)\n• Lokale KI: Texturen komplett gratis und unbegrenzt auf der eigenen Grafikkarte\n• Verständliche Fehlermeldungen bei der Textur-Erstellung"
+  "changelog": "📦 Melonenkonverter 1.0.25\n\n✨ Neu\n• Archive entpacken: PBO (Arma/DayZ), PAK und ZIP\n• Enthaltene Modelle erscheinen direkt in der Liste – mit Texturen aus dem Archiv\n• „Umwandeln“ entpackt alles: P3D → OBJ, PAA → PNG, Ordnerstruktur bleibt erhalten"
 }
