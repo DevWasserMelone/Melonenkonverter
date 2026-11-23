@@ -1,5 +1,5 @@
 {
-  "version": "1.0.25",
+  "version": "1.0.26",
   "date": "2026-11-23",
-  "changelog": "📦 Melonenkonverter 1.0.25\n\n✨ Neu\n• Archive entpacken: PBO (Arma/DayZ), PAK und ZIP\n• Enthaltene Modelle erscheinen direkt in der Liste – mit Texturen aus dem Archiv\n• „Umwandeln“ entpackt alles: P3D → OBJ, PAA → PNG, Ordnerstruktur bleibt erhalten"
+  "changelog": "🛠 Verbessert\n• Sehr große PAK-Archive (ZIP64, über 65 000 Dateien) werden unterstützt\n• Genauere Fehlermeldung bei unbekannten Archivformaten"
 }
