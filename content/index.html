@@ -148,8 +148,8 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 <main>
   <section class="col">
     <div class="colhead">Dateien <span class="sp"></span><span id="count"></span></div>
-    <div id="drop" class="snowcap"><b>P3D, OBJ, PAA oder PBO/PAK hier reinziehen</b>oder klicken zum Auswählen</div>
-    <input type="file" id="fileIn" accept=".p3d,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg,.pbo,.pak,.zip" multiple hidden>
+    <div id="drop" class="snowcap"><b>P3D, XOB, OBJ, PAA oder PBO/PAK hier reinziehen</b>oder klicken zum Auswählen</div>
+    <input type="file" id="fileIn" accept=".p3d,.xob,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg,.pbo,.pak,.zip" multiple hidden>
     <div class="tools"><input id="search" placeholder="Suchen …" spellcheck="false"><label class="selall"><input type="checkbox" id="selAll">Alle auswählen</label></div>
     <div id="list"><div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div></div>
     <div class="actions">
@@ -932,6 +932,78 @@ body.noxmas .snowcap::before{display:none}
     return sc;
   }
 
+
+  // ---------- XOB (Enfusion / Arma Reforger) ----------
+  // LZ4-Blöcke hintereinander; Rückverweise dürfen in frühere Blöcke reichen
+  function lz4chunks(src, outLen) {
+    var out = new Uint8Array(outLen), op = 0, p = 0;
+    while (p + 4 <= src.length) {
+      var h = (src[p] | (src[p + 1] << 8) | (src[p + 2] << 16) | (src[p + 3] << 24)) >>> 0; p += 4;
+      var size = h & 0x7fffffff, s = p, e = p + size; p = e;
+      if (e > src.length) throw new Error('XOB: Daten unvollständig');
+      while (s < e) {
+        var tok = src[s++], lit = tok >> 4, l;
+        if (lit === 15) { do { l = src[s++]; lit += l; } while (l === 255); }
+        if (op + lit > outLen) throw new Error('XOB: Entpacken fehlgeschlagen');
+        for (var i = 0; i < lit; i++) out[op++] = src[s++];
+        if (s >= e) break;
+        var off = src[s] | (src[s + 1] << 8); s += 2;
+        var ml = tok & 15; if (ml === 15) { do { l = src[s++]; ml += l; } while (l === 255); }
+        ml += 4;
+        var m = op - off; if (m < 0 || op + ml > outLen) throw new Error('XOB: Entpacken fehlgeschlagen');
+        for (i = 0; i < ml; i++) out[op++] = out[m++];
+      }
+      if (h & 0x80000000) break;
+    }
+    if (op !== outLen) throw new Error('XOB: Größe passt nicht (' + op + '/' + outLen + ')');
+    return out;
+  }
+  function parseXOB(buf) {
+    var u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    function tag(p) { return String.fromCharCode(u8[p], u8[p + 1], u8[p + 2], u8[p + 3]); }
+    if (tag(0) !== 'FORM' || tag(8).slice(0, 3) !== 'XOB') throw new Error('Das ist keine XOB-Datei.');
+    var p = 12, head = null;
+    while (p + 8 <= u8.length) {
+      var id = tag(p), len = dv.getUint32(p + 4, false);
+      if (id === 'HEAD') head = { off: p + 8, len: len };
+      p += 8 + len;
+    }
+    if (!head) throw new Error('XOB: Kopf fehlt.');
+    // Materialnamen aus dem Kopf (Pfade auf .emat)
+    var txt = '', mats = [];
+    for (var i = head.off; i < head.off + head.len; i++) txt += u8[i] >= 32 && u8[i] < 127 ? String.fromCharCode(u8[i]) : '\n';
+    txt.split('\n').forEach(function (t) { var m = /([A-Za-z0-9_\/ .\-]+\.emat)/.exec(t); if (m) mats.push(m[1]); });
+    var lods = [];
+    for (i = head.off; i + 82 < head.off + head.len; i++) {
+      if (u8[i] !== 0x4C || tag(i) !== 'LZO4') continue;
+      var off = dv.getUint32(i + 20, true), cs = dv.getUint32(i + 24, true), us = dv.getUint32(i + 28, true);
+      var T = dv.getUint16(i + 76, true), V = dv.getUint16(i + 78, true), A = dv.getUint16(i + 80, true);
+      if (off + cs > u8.length || !T || !V) continue;
+      lods.push({ off: off, cs: cs, us: us, T: T, V: V, A: A, dist: dv.getFloat32(i + 12, true) });
+    }
+    if (!lods.length) throw new Error('XOB: keine LODs gefunden.');
+    var tex = mats.length ? mats[0] : '';
+    var out = lods.map(function (L, li) {
+      var d = lz4chunks(u8.subarray(L.off, L.off + L.cs), L.us), ddv = new DataView(d.buffer);
+      var isz = 2;
+      if (L.T * 6 * 2 + L.V * 24 + L.A * 12 + 32 !== L.us) {
+        if (L.T * 12 * 2 + L.V * 24 + L.A * 12 + 32 === L.us) isz = 4;
+        else throw new Error('XOB: unbekannter Aufbau in LOD ' + li + ' (T=' + L.T + ' V=' + L.V + ' A=' + L.A + ' Größe ' + L.us + ')');
+      }
+      var pts = new Float32Array(L.V * 3), pb = L.T * 3 * isz * 2;
+      for (var v = 0; v < L.V; v++) { pts[v * 3] = ddv.getFloat32(pb + v * 16, true); pts[v * 3 + 1] = ddv.getFloat32(pb + v * 16 + 4, true); pts[v * 3 + 2] = ddv.getFloat32(pb + v * 16 + 8, true); }
+      var faces = [];
+      for (var t = 0; t < L.T; t++) {
+        var c = [];
+        for (var k = 0; k < 3; k++) { var ix = isz === 2 ? ddv.getUint16((t * 3 + k) * 2, true) : ddv.getUint32((t * 3 + k) * 4, true); if (ix >= L.V) throw new Error('XOB: Index außerhalb'); c.push({ p: ix, n: -1, u: 0, v: 0 }); }
+        faces.push({ v: c, flags: 0, tex: tex, mat: '' });
+      }
+      return { resolution: li, points: pts, normals: new Float32Array(0), faces: faces, selections: [], nPoints: L.V, nFaces: L.T, noUV: true };
+    });
+    out.forEach(function (l, idx) { l.name = 'LOD ' + idx + (idx === 0 ? ' (beste)' : ''); l.visual = true; l.index = idx; });
+    return { lods: out, xob: true, materials: mats };
+  }
+
   // ---------- Umrechnung ins OBJ-Koordinatensystem ----------
   // Arma: linkshändig, Y oben. OBJ/Blender: rechtshändig, Y oben -> Z spiegeln.
   function prepareLod(lod, opt) {
@@ -1253,7 +1325,7 @@ body.noxmas .snowcap::before{display:none}
   root.MK = {
     materialKey: materialKey, autoColor: autoColor, collectMaterials: collectMaterials,
     texScore: texScore, isBadMap: function (n) { return BAD.test(stripExt(baseName(n))); },
-    parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
+    parseXOB: parseXOB, parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
     parseP3D: parseP3D, defaultLod: defaultLod, prepareLod: prepareLod, buildOBJ: buildOBJ, buildMTL: buildMTL,
     decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x, _lzss: lzss
   };
@@ -1597,10 +1669,10 @@ body.noxmas .snowcap::before{display:none}
     function hexAt(a) { var o = []; for (var i = a; i < a + 32 && i < b.length; i++) o.push(('0' + b[i].toString(16)).slice(-2)); return o.join(' '); }
     function node(prefix, depth) {
       if (depth > 64) throw new Error('zu tief verschachtelt');
-      var start = q, type = b[q++], nl = b[q++], name = '';
-      for (var i = 0; i < nl; i++) name += String.fromCharCode(b[q + i]);
+      var start = q, type = b[q++], nl = b[q++];
+      var name = utf8(b.subarray(q, q + nl));   // Namen können Umlaute enthalten (UTF-8)
       q += nl;
-      if (!/^[\x20-\x7e]*$/.test(name)) throw new Error('unlesbarer Name bei ' + start + ' [' + hexAt(start) + ']');
+      if (/[\x00-\x1f]/.test(name) || q > b.length) throw new Error('unlesbarer Name bei ' + start + ' [' + hexAt(start) + ']');
       var path = prefix ? (name ? prefix + '/' + name : prefix) : name;
       if (type === 0) {
         var cnt = u32(b, q); q += 4; dirs++;
@@ -1708,13 +1780,13 @@ function showErr(msg){
 var paaPool = {}; // im Browser mitgezogene Texturen
 async function addEntries(entries){
   var added=[];
-  var hasModel = entries.some(function(e){ return /\.(p3d|obj)$/i.test(e.name); });
+  var hasModel = entries.some(function(e){ return /\.(p3d|xob|obj)$/i.test(e.name); });
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
     if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
     if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; }
-    else if (!/\.(p3d|obj|pbo|pak|zip)$/.test(low)) continue;
-    var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : /\.(pbo|pak|zip)$/.test(low) ? 'arc' : 'paa';
+    else if (!/\.(p3d|xob|obj|pbo|pak|zip)$/.test(low)) continue;
+    var kind = /\.(p3d|xob)$/.test(low) ? 'p3d' : low.endsWith('.obj') ? 'obj' : /\.(pbo|pak|zip)$/.test(low) ? 'arc' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
     if (ex) { ex.entry=en; ex.model=null; ex.img=null; ex.status='wait'; ex.err=''; added.push(ex); continue; }
     var f = { kind:kind, id:Math.random().toString(36).slice(2), name:name, path:en.path||'', entry:en, model:null, status:'wait', err:'', lodPick:null, tex:{}, out:'' };
@@ -1762,7 +1834,7 @@ async function load(f){
       var c={ m:0, t:0, o:0 }, inner=[];
       for (var ai2=0; ai2<f.arc.entries.length; ai2++){
         var e=f.arc.entries[ai2], ln=e.name.toLowerCase(), bn=MK.baseName(e.name);
-        if (/\.(p3d|obj)$/.test(ln)){ c.m++; inner.push({ name:bn, file:new File([await e.get()], bn), arc:f.name }); }
+        if (/\.(p3d|xob|obj)$/.test(ln)){ c.m++; inner.push({ name:bn, file:new File([await e.get()], bn), arc:f.name }); }
         else if (/\.(pa[ac]|png|jpe?g|bmp|webp|tga|mtl)$/.test(ln)){ c.t++; var ten={ name:bn, file:new File([await e.get()], bn) }; paaPool[bn.toLowerCase()]=ten; if (isTexName(bn)) libAdd(ten, true); }
         else c.o++;
       }
@@ -1781,7 +1853,8 @@ async function load(f){
       f.model = MK.parseOBJ(buf);
       await loadMtl(f);
       hx('format OBJ · '+f.model.lods[0].nPoints+' vertices · '+f.model.lods[0].nFaces+' faces');
-    } else f.model = MK.parseP3D(buf);
+    } else if (/\.xob$/i.test(f.name)){ f.model = MK.parseXOB(buf); hx('format XOB (Enfusion) · '+f.model.lods.length+' LODs'); }
+    else f.model = MK.parseP3D(buf);
     f.lodPick = null;
     if (f.kind!=='obj') hx('format '+(f.model.odol?'ODOL v'+f.model.version:'MLOD')+' · '+f.model.lods.length+' LODs · '+buf.length+' bytes');
     f.model.lods.forEach(function(l,i){ if(i<6) hx('  lod['+i+'] '+l.name+' · vc='+l.nPoints+' · faces='+l.nFaces+(l.failed?' · SKIP':''), l.failed?'w':''); });
@@ -1943,8 +2016,8 @@ async function extractArc(f, dirOverride){
       try {
         if (/\.pa[ac]$/.test(ln)){
           var pi=await texPng(e.name); if (pi){ outs.push({ sub:sub, name:pi.name, data:pi.png }); nTex++; }
-        } else if (/\.p3d$/.test(ln)){
-          var m=MK.parseP3D(data), nm=MK.safeName(MK.stripExt(bn));
+        } else if (/\.(p3d|xob)$/.test(ln)){
+          var m=/\.xob$/.test(ln)?MK.parseXOB(data):MK.parseP3D(data), nm=MK.safeName(MK.stripExt(bn));
           var r=MK.buildOBJ(m, { name:nm, lods:[MK.defaultLod(m)], scale:S.scale, flip:S.flip, mtl:true, split:S.split });
           for (var k=0;k<r.materials.length;k++){
             var mt=r.materials[k]; if (!mt.tex || mt.tex.charAt(0)==='#') continue;
@@ -2106,7 +2179,7 @@ $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFo
 $('clear').onclick = function(){ files=[]; selected=null; paaPool={}; render(); select(null); };
 
 // ---------- Liste ----------
-var GROUPS=[['arc','Archive (PBO/PAK)'],['p3d','P3D-Modelle'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
+var GROUPS=[['arc','Archive (PBO/PAK)'],['p3d','Modelle (P3D/XOB)'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
 function visible(){
   var q=($('search').value||'').trim().toLowerCase();
   return files.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q)>=0; });
@@ -2167,7 +2240,7 @@ function select(f){
   showImage(f && f.img ? f : null);
   if (!f || !f.model) renderMats(null);
   if (f && f.arc){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none'; renderMats(null);
-    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br>'+(f.arcExt||'')+(f.arc.format==='Enfusion-PAK'?'<br><span style="color:var(--yellow)">.xob/.edds werden vorerst nur entpackt – Umwandlung kommt, sobald ich eine Beispieldatei habe.</span>':'')+'<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>';
+    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br>'+(f.arcExt||'')+(f.arc.format==='Enfusion-PAK'?'<br><span style="color:var(--yellow)">.xob werden zu OBJ (Form, noch ohne Texturkoordinaten) · .edds werden vorerst nur entpackt.</span>':'')+'<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>';
     $('viewInfo').querySelector('b').textContent=f.name; return; }
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
     $('viewInfo').innerHTML='<b></b><br>Textur · '+f.img.format+' · '+f.img.width+' × '+f.img.height+' Pixel'+(f.img.hasAlpha?' · mit Transparenz':'');
@@ -2188,7 +2261,7 @@ function refreshView(){
   viewer.set(f, li);
   renderMats(f, li);
   var texCount=0, texFound=0; Object.keys(f.tex).forEach(function(k){ texCount++; if (f.tex[k].rgba) texFound++; });
-  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
+  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(f.model.xob?' · Arma Reforger (XOB) · Texturkoordinaten folgen noch':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
   $('viewInfo').querySelector('b').textContent=f.name;
 }
 
