@@ -221,6 +221,18 @@ function fsMsg(err, what) {
   if (c === 'EROFS') return what + ': Der Ordner ist schreibgeschützt.';
   return what + ': ' + (err && err.message || err);
 }
+// große Dateien stückweise lesen (kein Größenlimit)
+ipcMain.handle('a:fileSize', (e, p) => { try { return fs.statSync(p).size; } catch (err) { throw new Error(fsMsg(err, 'Lesen fehlgeschlagen')); } });
+ipcMain.handle('a:readRange', (e, p, off, len) => {
+  let fd;
+  try {
+    fd = fs.openSync(p, 'r');
+    const buf = Buffer.alloc(len);
+    const n = fs.readSync(fd, buf, 0, len, off);
+    return new Uint8Array(buf.buffer, buf.byteOffset, n);
+  } catch (err) { throw new Error(fsMsg(err, 'Lesen fehlgeschlagen')); }
+  finally { if (fd !== undefined) try { fs.closeSync(fd); } catch (x) {} }
+});
 ipcMain.handle('a:read', (e, p) => {
   try { return new Uint8Array(fs.readFileSync(p)); } catch (err) { throw new Error(fsMsg(err, 'Lesen fehlgeschlagen')); }
 });

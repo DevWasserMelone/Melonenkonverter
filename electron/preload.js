@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('mk', {
   pickFiles: () => ipcRenderer.invoke('a:pickFiles'),
   pickFolder: () => ipcRenderer.invoke('a:pickFolder'),
   readFile: (p) => ipcRenderer.invoke('a:read', p),
+  fileSize: (p) => ipcRenderer.invoke('a:fileSize', p),
+  readRange: (p, off, len) => ipcRenderer.invoke('a:readRange', p, off, len),
   writeFiles: (dir, files) => ipcRenderer.invoke('a:write', dir, files),
   findTexture: (p3d, tex) => ipcRenderer.invoke('a:findTex', p3d, tex),
   listTextures: (file, levels) => ipcRenderer.invoke('a:listTex', file, levels),

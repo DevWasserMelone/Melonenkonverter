@@ -1495,13 +1495,30 @@ body.noxmas .snowcap::before{display:none}
     var eocd = -1;
     for (var i = u8.length - 22; i >= Math.max(0, u8.length - 65600); i--) if (u32(u8, i) === 0x06054b50) { eocd = i; break; }
     if (eocd < 0) throw new Error('ZIP-Verzeichnis nicht gefunden.');
-    var n = u16(u8, eocd + 10), cdOff = u32(u8, eocd + 16), p = cdOff, entries = [];
-    if (cdOff === 0xFFFFFFFF) throw new Error('Sehr große ZIP64-Archive werden nicht unterstützt.');
+    var n = u16(u8, eocd + 10), cdOff = u32(u8, eocd + 16), p, entries = [];
+    function u64(q) { return u32(u8, q) + u32(u8, q + 4) * 4294967296; }
+    // ZIP64 (sehr viele Dateien oder sehr groß)
+    if (eocd >= 20 && u32(u8, eocd - 20) === 0x07064b50) {
+      var z64 = u64(eocd - 12);
+      if (z64 + 56 <= u8.length && u32(u8, z64) === 0x06064b50) { n = u64(z64 + 32); cdOff = u64(z64 + 48); }
+    }
+    if (cdOff >= u8.length) throw new Error('ZIP-Verzeichnis liegt außerhalb der Datei.');
+    p = cdOff;
     for (i = 0; i < n; i++) {
       if (u32(u8, p) !== 0x02014b50) throw new Error('ZIP-Verzeichnis beschädigt.');
       var flags = u16(u8, p + 8), method = u16(u8, p + 10), csize = u32(u8, p + 20), usize = u32(u8, p + 24);
       var nl = u16(u8, p + 28), xl = u16(u8, p + 30), cl = u16(u8, p + 32), lho = u32(u8, p + 42);
       var name = utf8(u8.subarray(p + 46, p + 46 + nl));
+      // ZIP64-Zusatzfeld: echte Größen/Positionen
+      for (var xp = p + 46 + nl, xe = xp + xl; xp + 4 <= xe;) {
+        var id = u16(u8, xp), sz = u16(u8, xp + 2), q = xp + 4;
+        if (id === 1) {
+          if (usize === 0xFFFFFFFF) { usize = u64(q); q += 8; }
+          if (csize === 0xFFFFFFFF) { csize = u64(q); q += 8; }
+          if (lho === 0xFFFFFFFF) { lho = u64(q); q += 8; }
+        }
+        xp += 4 + sz;
+      }
       p += 46 + nl + xl + cl;
       if (/\/$/.test(name)) continue;
       (function (name, method, csize, usize, lho, flags) {
@@ -1546,11 +1563,77 @@ body.noxmas .snowcap::before{display:none}
       var e = new Error('Das ist ein Unreal-Engine-Paket. Diese sind meist verschlüsselt und speichern Modelle in einem eigenen Format (.uasset), das sich hier nicht zuverlässig lesen lässt. Nimm dafür das kostenlose Tool FModel (Modelle als GLB/OBJ, Texturen als PNG exportieren).');
       e.code = 'UNREAL'; throw e;
     }
-    try { return readZIP(u8); } catch (x) {}
-    throw new Error('Unbekanntes Archivformat. Unterstützt: PBO (Arma/DayZ), ZIP-basierte PAK, PACK.');
+    var zipErr = '';
+    try { return readZIP(u8); } catch (x) { zipErr = x.message; }
+    function hex(a, b) { var o = []; for (var i = a; i < b && i < u8.length; i++) o.push(('0' + u8[i].toString(16)).slice(-2)); return o.join(' '); }
+    var head = '', ascii = ''; for (var i = 0; i < 16 && i < u8.length; i++) ascii += (u8[i] >= 32 && u8[i] < 127) ? String.fromCharCode(u8[i]) : '.';
+    head = hex(0, 16);
+    var err = new Error('Unbekanntes Archivformat. Unterstützt: PBO (Arma/DayZ), ZIP-basierte PAK, PACK.' +
+      ' [Anfang: ' + head + ' „' + ascii + '“ · Ende: ' + hex(u8.length - 24, u8.length) + (zipErr ? ' · ZIP: ' + zipErr : '') + ']');
+    err.code = 'UNKNOWN'; throw err;
   }
 
-  root.MKArc = { open: open };
+
+  // ---------- Enfusion (Arma Reforger) – stückweise gelesen ----------
+  function be32(u8, p) { return ((u8[p] << 24) | (u8[p + 1] << 16) | (u8[p + 2] << 8) | u8[p + 3]) >>> 0; }
+  function tag(u8, p) { return String.fromCharCode(u8[p], u8[p + 1], u8[p + 2], u8[p + 3]); }
+  async function inflateZlib(data, outLen) {
+    try {
+      var ds = new DecompressionStream('deflate');
+      return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(ds)).arrayBuffer());
+    } catch (e) { return await inflateRaw(data); }
+  }
+  async function readEnfusion(rd) {
+    var p = 12, chunks = {}, guard = 0;
+    while (p + 8 <= rd.size && guard++ < 64) {
+      var h = await rd.read(p, 8), id = tag(h, 0), len = be32(h, 4);
+      chunks[id] = { off: p + 8, len: len };
+      p += 8 + len + (len & 1 ? 0 : 0);
+      if (id === 'FILE') break;
+    }
+    var F = chunks.FILE;
+    if (!F) throw new Error('Enfusion-PAK: Dateiliste (FILE) nicht gefunden. Gefundene Teile: ' + Object.keys(chunks).join(', '));
+    var b = await rd.read(F.off, F.len), q = 0, entries = [], dirs = 0;
+    function hexAt(a) { var o = []; for (var i = a; i < a + 32 && i < b.length; i++) o.push(('0' + b[i].toString(16)).slice(-2)); return o.join(' '); }
+    function node(prefix, depth) {
+      if (depth > 64) throw new Error('zu tief verschachtelt');
+      var start = q, type = b[q++], nl = b[q++], name = '';
+      for (var i = 0; i < nl; i++) name += String.fromCharCode(b[q + i]);
+      q += nl;
+      if (!/^[\x20-\x7e]*$/.test(name)) throw new Error('unlesbarer Name bei ' + start + ' [' + hexAt(start) + ']');
+      var path = prefix ? (name ? prefix + '/' + name : prefix) : name;
+      if (type === 0) {
+        var cnt = u32(b, q); q += 4; dirs++;
+        if (cnt > 1000000) throw new Error('unplausible Anzahl bei ' + start + ' [' + hexAt(start) + ']');
+        for (var k = 0; k < cnt; k++) node(path, depth + 1);
+      } else if (type === 1) {
+        var off = u32(b, q), cs = u32(b, q + 4), us = u32(b, q + 8), comp = u32(b, q + 16); q += 24;
+        (function (path, off, cs, us, comp) {
+          entries.push({
+            name: path, length: us, offset: off, csize: cs, comp: comp,
+            get: async function () {
+              var data = await rd.read(off, cs);
+              if (cs !== us || comp) return await inflateZlib(data, us);
+              return data;
+            }
+          });
+        })(path, off, cs, us, comp);
+      } else throw new Error('unbekannter Eintragstyp ' + type + ' bei ' + start + ' [' + hexAt(start) + ']');
+    }
+    try { while (q < b.length) node('', 0); }
+    catch (e) { var er = new Error('Enfusion-PAK: Dateiliste nicht lesbar (' + e.message + ').'); er.code = 'ENFUSION'; throw er; }
+    return { format: 'Enfusion-PAK', prefix: '', entries: entries };
+  }
+  // Archiv über eine Lesefunktion öffnen (große Dateien werden nicht komplett geladen)
+  async function openReader(rd, name) {
+    var head = await rd.read(0, Math.min(16, rd.size));
+    if (head.length >= 12 && tag(head, 0) === 'FORM' && tag(head, 8) === 'PAC1') return await readEnfusion(rd);
+    if (rd.size > 1800 * 1024 * 1024) throw new Error('Dieses Archiv ist zu groß, um es komplett zu laden (' + Math.round(rd.size / 1048576) + ' MB), und kein Enfusion-PAK.');
+    return open(await rd.read(0, rd.size), name);
+  }
+  function bufferReader(u8) { return { size: u8.length, read: async function (o, l) { return u8.subarray(o, o + l); } }; }
+
+  root.MKArc = { open: open, openReader: openReader, bufferReader: bufferReader };
 })(typeof window !== 'undefined' ? window : globalThis);
 
 </script>
@@ -1667,10 +1750,15 @@ async function readEntry(en){
 async function load(f){
   f.status='busy'; render(); hx('open '+(f.path||f.name)); hxBurst(1800);
   try {
-    var buf = await readEntry(f.entry);
-    f.size = buf.length;
     if (f.kind==='arc'){
-      f.arc = MKArc.open(buf, f.name);
+      var rd;
+      if (mk && f.path && mk.readRange){ var sz=await mk.fileSize(f.path); rd={ size:sz, read:function(o,l){ return mk.readRange(f.path, o, Math.max(0, Math.min(l, sz-o))); } }; }
+      else rd=MKArc.bufferReader(await readEntry(f.entry));
+      f.size=rd.size;
+      f.arc = await MKArc.openReader(rd, f.name);
+      var extCount={};
+      f.arc.entries.forEach(function(e){ var m=/\.([a-z0-9]+)$/i.exec(e.name); var x=m?m[1].toLowerCase():'ohne'; extCount[x]=(extCount[x]||0)+1; });
+      f.arcExt=Object.keys(extCount).sort(function(a,b){ return extCount[b]-extCount[a]; }).slice(0,8).map(function(k){ return extCount[k]+' × .'+k; }).join(' · ');
       var c={ m:0, t:0, o:0 }, inner=[];
       for (var ai2=0; ai2<f.arc.entries.length; ai2++){
         var e=f.arc.entries[ai2], ln=e.name.toLowerCase(), bn=MK.baseName(e.name);
@@ -1682,6 +1770,8 @@ async function load(f){
       hx('archive '+f.arc.format+' · '+f.arc.entries.length+' files · '+c.m+' models · '+c.t+' textures'+(f.arc.prefix?' · prefix '+f.arc.prefix:''));
       f.status='wait'; f.err=''; render(); return;
     }
+    var buf = await readEntry(f.entry);
+    f.size = buf.length;
     if (f.kind==='paa'){
       f.img = MK.decodePAA(buf);
       hx('texture '+f.img.format+' · '+f.img.width+'x'+f.img.height+(f.img.hasAlpha?' · alpha':'')+' · '+buf.length+' bytes');
@@ -1828,7 +1918,15 @@ async function extractArc(f, dirOverride){
   try {
     var ents=f.arc.entries, texBy={}, outs=[], nModel=0, nTex=0, bad=0;
     ents.forEach(function(e){ var ln=e.name.toLowerCase(); if (/\.(pa[ac]|png|jpe?g)$/.test(ln)) texBy[MK.baseName(ln)]=e; });
-    var pngCache={};
+    var pngCache={}, written=0;
+    async function flush(){
+      if (!(mk && f.path) || !outs.length) return;
+      var groups={}, sep=root.indexOf('\\')>=0?'\\':'/';
+      outs.forEach(function(o){ (groups[o.sub]=groups[o.sub]||[]).push({ name:o.name, data:o.data }); });
+      var keys=Object.keys(groups);
+      for (var g=0; g<keys.length; g++) await mk.writeFiles(keys[g] ? root+sep+keys[g].split('/').join(sep) : root, groups[keys[g]]);
+      written+=outs.length; outs=[];
+    }
     async function texPng(texPath){
       var key=MK.baseName(String(texPath).toLowerCase()), e=texBy[key]; if (!e) return null;
       if (pngCache[key]!==undefined) return pngCache[key];
@@ -1841,6 +1939,7 @@ async function extractArc(f, dirOverride){
       if (i%10===0){ $('convertOne').textContent=(i+1)+' / '+ents.length; await new Promise(function(r){ setTimeout(r,0); }); }
       var data; try { data=await e.get(); } catch(x){ bad++; hx('skip '+e.name+': '+clean(x),'w'); continue; }
       outs.push({ sub:sub, name:bn, data:data });
+      if (mk && f.path && outs.length>=40) await flush();
       try {
         if (/\.pa[ac]$/.test(ln)){
           var pi=await texPng(e.name); if (pi){ outs.push({ sub:sub, name:pi.name, data:pi.png }); nTex++; }
@@ -1857,10 +1956,7 @@ async function extractArc(f, dirOverride){
       } catch(x){ bad++; hx('convert '+e.name+' fehlgeschlagen: '+clean(x),'w'); }
     }
     if (mk && f.path){
-      var groups={};
-      outs.forEach(function(o){ (groups[o.sub]=groups[o.sub]||[]).push({ name:o.name, data:o.data }); });
-      var sep=root.indexOf('\\')>=0?'\\':'/', keys=Object.keys(groups);
-      for (var g=0; g<keys.length; g++) await mk.writeFiles(keys[g] ? root+sep+keys[g].split('/').join(sep) : root, groups[keys[g]]);
+      await flush();
       f.out=root; if (f===selected) $('openOut').disabled=false;
     } else {
       var blob=MK.makeZip(outs.map(function(o){ return { name:(o.sub?o.sub+'/':'')+o.name, data:o.data }; }));
@@ -1868,7 +1964,7 @@ async function extractArc(f, dirOverride){
     }
     f.status='ok'; f.err='';
     log('✓ '+f.name+' entpackt · '+nModel+' Modell(e) → OBJ · '+nTex+' Textur(en) → PNG'+(bad?' · '+bad+' Datei(en) übersprungen':''), 'ok');
-    hx('extract done · '+outs.length+' files ✓');
+    hx('extract done · '+(written||outs.length)+' files ✓');
   } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err,'err'); hx('ERROR '+f.err,'e'); }
   $('convertOne').textContent='Umwandeln';
   render(); if (f===selected) showErr(f.err);
@@ -2071,7 +2167,7 @@ function select(f){
   showImage(f && f.img ? f : null);
   if (!f || !f.model) renderMats(null);
   if (f && f.arc){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none'; renderMats(null);
-    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>';
+    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br>'+(f.arcExt||'')+(f.arc.format==='Enfusion-PAK'?'<br><span style="color:var(--yellow)">.xob/.edds werden vorerst nur entpackt – Umwandlung kommt, sobald ich eine Beispieldatei habe.</span>':'')+'<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>';
     $('viewInfo').querySelector('b').textContent=f.name; return; }
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
     $('viewInfo').innerHTML='<b></b><br>Textur · '+f.img.format+' · '+f.img.width+' × '+f.img.height+' Pixel'+(f.img.hasAlpha?' · mit Transparenz':'');
