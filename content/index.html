@@ -149,7 +149,7 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
   <section class="col">
     <div class="colhead">Dateien <span class="sp"></span><span id="count"></span></div>
     <div id="drop" class="snowcap"><b>P3D, XOB, OBJ, PAA oder PBO/PAK hier reinziehen</b>oder klicken zum Auswählen</div>
-    <input type="file" id="fileIn" accept=".p3d,.xob,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg,.pbo,.pak,.zip" multiple hidden>
+    <input type="file" id="fileIn" accept=".p3d,.xob,.obj,.mtl,.emat,.edds,.paa,.pac,.png,.jpg,.jpeg,.pbo,.pak,.zip" multiple hidden>
     <div class="tools"><input id="search" placeholder="Suchen …" spellcheck="false"><label class="selall"><input type="checkbox" id="selAll">Alle auswählen</label></div>
     <div id="list"><div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div></div>
     <div class="actions">
@@ -961,49 +961,144 @@ body.noxmas .snowcap::before{display:none}
   function parseXOB(buf) {
     var u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf), dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
     function tag(p) { return String.fromCharCode(u8[p], u8[p + 1], u8[p + 2], u8[p + 3]); }
-    if (tag(0) !== 'FORM' || tag(8).slice(0, 3) !== 'XOB') throw new Error('Das ist keine XOB-Datei.');
-    var p = 12, head = null;
-    while (p + 8 <= u8.length) {
-      var id = tag(p), len = dv.getUint32(p + 4, false);
-      if (id === 'HEAD') head = { off: p + 8, len: len };
-      p += 8 + len;
-    }
-    if (!head) throw new Error('XOB: Kopf fehlt.');
-    // Materialnamen aus dem Kopf (Pfade auf .emat)
-    var txt = '', mats = [];
-    for (var i = head.off; i < head.off + head.len; i++) txt += u8[i] >= 32 && u8[i] < 127 ? String.fromCharCode(u8[i]) : '\n';
-    txt.split('\n').forEach(function (t) { var m = /([A-Za-z0-9_\/ .\-]+\.emat)/.exec(t); if (m) mats.push(m[1]); });
-    var lods = [];
-    for (i = head.off; i + 82 < head.off + head.len; i++) {
-      if (u8[i] !== 0x4C || tag(i) !== 'LZO4') continue;
-      var off = dv.getUint32(i + 20, true), cs = dv.getUint32(i + 24, true), us = dv.getUint32(i + 28, true);
-      var T = dv.getUint16(i + 76, true), V = dv.getUint16(i + 78, true), A = dv.getUint16(i + 80, true);
-      if (off + cs > u8.length || !T || !V) continue;
-      lods.push({ off: off, cs: cs, us: us, T: T, V: V, A: A, dist: dv.getFloat32(i + 12, true) });
-    }
-    if (!lods.length) throw new Error('XOB: keine LODs gefunden.');
-    var tex = mats.length ? mats[0] : '';
-    var out = lods.map(function (L, li) {
-      var d = lz4chunks(u8.subarray(L.off, L.off + L.cs), L.us), ddv = new DataView(d.buffer);
-      var isz = 2;
-      if (L.T * 6 * 2 + L.V * 24 + L.A * 12 + 32 !== L.us) {
-        if (L.T * 12 * 2 + L.V * 24 + L.A * 12 + 32 === L.us) isz = 4;
-        else throw new Error('XOB: unbekannter Aufbau in LOD ' + li + ' (T=' + L.T + ' V=' + L.V + ' A=' + L.A + ' Größe ' + L.us + ')');
+    if (tag(0) !== 'FORM' || tag(8) !== 'XOB9') throw new Error('Das ist keine XOB-Datei (oder eine unbekannte Version: ' + tag(8) + ').');
+    var end = Math.min(u8.length, dv.getUint32(4, false) + 8), p = 12, ch = {};
+    while (p + 8 <= end) { var t = tag(p), sz = dv.getUint32(p + 4, false); ch[t] = { off: p + 8, len: sz }; p += 8 + sz; }
+    if (!ch.HEAD) throw new Error('XOB: Kopf fehlt.');
+    p = ch.HEAD.off + 44;
+    var nMat = dv.getUint16(p, true), nBone = dv.getUint16(p + 2, true), nLod = u8[p + 4], nPoint = u8[p + 5], strSize = dv.getUint32(p + 12, true);
+    p += 16;
+    var strings = new TextDecoder('utf-8').decode(u8.subarray(p, p + strSize)).replace(/\0+$/, '').split('\0'); p += strSize;
+    function S(i) { return i < strings.length ? strings[i] : ''; }
+    var mats = [];
+    for (var i = 0; i < nMat; i++) { mats.push({ name: S(dv.getUint16(p, true)), path: S(dv.getUint16(p + 2, true)).replace(/^\{[0-9A-Fa-f]+\}/, '') }); p += 4; }
+    p += nBone * 36 + nPoint * 12;
+    var lodDesc = [];
+    for (var l = 0; l < nLod; l++) {
+      if (tag(p) !== 'LZO4' && l === 0) { for (var k = p; k < p + 65; k++) if (tag(k) === 'LZO4') { p = k; break; } }
+      if (tag(p) !== 'LZO4') throw new Error('XOB: LOD-Beschreibung ' + l + ' nicht gefunden.');
+      var nSec = dv.getUint32(p + 4, true), nBB = dv.getUint32(p + 16, true);
+      var lo = dv.getUint32(p + 20, true), cs = dv.getUint32(p + 24, true), us = dv.getUint32(p + 28, true); p += 32;
+      var secs = [];
+      for (var sI = 0; sI < nSec; sI++) {
+        var fmt = dv.getUint32(p, true), q = p + 44, nUv = u8[q + 14], nPal = u8[q + 15];
+        var tris = dv.getUint16(q, true) | (dv.getUint16(q + 18, true) << 16);
+        var verts = dv.getUint16(q + 2, true), tverts = dv.getUint16(q + 4, true), weights = dv.getUint16(q + 6, true), mat = dv.getUint16(q + 12, true);
+        p = q + 20; var uvs = [];
+        for (k = 0; k < nUv; k++) { uvs.push([dv.getFloat32(p, true), dv.getFloat32(p + 4, true), dv.getFloat32(p + 8, true), dv.getFloat32(p + 12, true)]); p += 20; }
+        p += nPal;
+        var nm = S(fmt & 0xffff);
+        secs.push({ name: nm.charAt(0) === '{' ? '' : nm, fmt: fmt, tris: tris, verts: verts, tverts: tverts, weights: weights, mat: mat, uvs: uvs });
       }
-      var pts = new Float32Array(L.V * 3), pb = L.T * 3 * isz * 2;
-      for (var v = 0; v < L.V; v++) { pts[v * 3] = ddv.getFloat32(pb + v * 16, true); pts[v * 3 + 1] = ddv.getFloat32(pb + v * 16 + 4, true); pts[v * 3 + 2] = ddv.getFloat32(pb + v * 16 + 8, true); }
-      var faces = [];
-      for (var t = 0; t < L.T; t++) {
-        var c = [];
-        for (var k = 0; k < 3; k++) { var ix = isz === 2 ? ddv.getUint16((t * 3 + k) * 2, true) : ddv.getUint32((t * 3 + k) * 4, true); if (ix >= L.V) throw new Error('XOB: Index außerhalb'); c.push({ p: ix, n: -1, u: 0, v: 0 }); }
-        faces.push({ v: c, flags: 0, tex: tex, mat: '' });
-      }
-      return { resolution: li, points: pts, normals: new Float32Array(0), faces: faces, selections: [], nPoints: L.V, nFaces: L.T, noUV: true };
+      p += nBB * 28;
+      lodDesc.push({ lo: lo, cs: cs, us: us, secs: secs });
+    }
+    if (!lodDesc.length) throw new Error('XOB: keine LODs.');
+    var SK = 0x10000000, COL = 0x20000000;
+    var lods = lodDesc.map(function (L, li) {
+      var d = lz4chunks(u8.subarray(L.lo, L.lo + L.cs), L.us), ddv = new DataView(d.buffer, d.byteOffset, d.byteLength), o = 0;
+      var P = [], N = [], faces = [], base = 0;
+      L.secs.forEach(function (sec) {
+        var sk = sec.fmt & SK, n = sec.verts, nUv = sec.uvs.length, mt = mats[sec.mat] || { name: 'material', path: '' };
+        var idxOff = o; o += sec.tris * 12;
+        var posOff = o; o += n * (sk ? 16 : 12);
+        var norOff = o; o += n * 4;
+        if (sec.fmt & COL) o += n * 4;
+        var uvOff = o; o += n * 4 * nUv;
+        o += sec.tverts * (4 + 8 * Math.max(1, nUv));
+        if (sk) o += sec.weights * 16;
+        if (o > d.length) throw new Error('XOB: LOD ' + li + ' ist größer als erwartet.');
+        for (var v = 0; v < n; v++) {
+          var pp = posOff + v * (sk ? 16 : 12);
+          P.push(ddv.getFloat32(pp, true), ddv.getFloat32(pp + 4, true), ddv.getFloat32(pp + 8, true));
+          var nv = ddv.getUint32(norOff + v * 4, true), x = (nv >>> 21) / 1023 - 1, y = ((nv >>> 10) & 0x7ff) / 1023 - 1, z = (nv & 0x3ff) / 511 - 1, ln = Math.sqrt(x * x + y * y + z * z) || 1;
+          N.push(x / ln, y / ln, z / ln);
+        }
+        var U = new Float32Array(n * 2);
+        if (nUv) {
+          var r = sec.uvs[0];
+          for (v = 0; v < n; v++) {
+            var ru = ddv.getInt16(uvOff + v * 4 * nUv, true), rv = ddv.getInt16(uvOff + v * 4 * nUv + 2, true);
+            U[v * 2] = r[0] + (r[1] - r[0]) * (ru / 32767 * 0.5 + 0.5);
+            U[v * 2 + 1] = r[2] + (r[3] - r[2]) * (rv / 32767 * 0.5 + 0.5);
+          }
+        }
+        for (var t = 0; t < sec.tris; t++) {
+          var ia = ddv.getUint16(idxOff + t * 6, true), ib = ddv.getUint16(idxOff + t * 6 + 2, true), ic = ddv.getUint16(idxOff + t * 6 + 4, true);
+          if (ia >= n || ib >= n || ic >= n) throw new Error('XOB: Index außerhalb in LOD ' + li);
+          // Reihenfolge wie im Original-Werkzeug (a, c, b) – nach dem Spiegeln zeigt die Fläche nach außen
+          faces.push({ v: [ia, ic, ib].map(function (k) { return { p: base + k, n: base + k, u: U[k * 2], v: U[k * 2 + 1] }; }), flags: 0, tex: mt.path || mt.name, mat: mt.name, sec: sec.name });
+        }
+        base += n;
+      });
+      return { resolution: li, points: new Float32Array(P), normals: new Float32Array(N), faces: faces, selections: [], nPoints: base, nFaces: faces.length, fixedWinding: true };
     });
-    out.forEach(function (l, idx) { l.name = 'LOD ' + idx + (idx === 0 ? ' (beste)' : ''); l.visual = true; l.index = idx; });
-    return { lods: out, xob: true, materials: mats };
+    lods.forEach(function (lo, idx) { lo.name = 'LOD ' + idx + (idx === 0 ? ' (beste)' : ''); lo.visual = true; lo.index = idx; });
+    return { lods: lods, xob: true, materials: mats };
   }
 
+  // ---------- EDDS (Enfusion-Texturen) ----------
+  function lz4mip(b) {
+    var usize = (b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0, out = new Uint8Array(usize), op = 0, p = 4;
+    while (p + 4 <= b.length) {
+      var h = (b[p] | (b[p + 1] << 8) | (b[p + 2] << 16) | (b[p + 3] << 24)) >>> 0; p += 4;
+      var cs = h & 0xFFFFFF, s = p, e = p + cs; p = e;
+      while (s < e) {
+        var tok = b[s++], lit = tok >> 4, l;
+        if (lit === 15) { do { l = b[s++]; lit += l; } while (l === 255); }
+        for (var i = 0; i < lit; i++) out[op++] = b[s++];
+        if (s >= e) break;
+        var off = b[s] | (b[s + 1] << 8); s += 2;
+        var ml = tok & 15; if (ml === 15) { do { l = b[s++]; ml += l; } while (l === 255); }
+        ml += 4; var m = op - off;
+        if (m < 0) throw new Error('EDDS: Entpacken fehlgeschlagen');
+        for (i = 0; i < ml; i++) out[op++] = out[m++];
+      }
+      if (h >>> 31) break;
+    }
+    return out;
+  }
+  var DXGI = { 71: 'bc1', 72: 'bc1', 74: 'bc2', 75: 'bc2', 77: 'bc3', 78: 'bc3', 80: 'bc4', 81: 'bc4', 83: 'bc5', 84: 'bc5', 95: 'bc6', 96: 'bc6', 98: 'bc7', 99: 'bc7', 87: 'bgra', 91: 'bgra', 28: 'rgba', 29: 'rgba', 61: 'r8' };
+  var FCC = { DXT1: 'bc1', DXT3: 'bc2', DXT5: 'bc3', ATI1: 'bc4', BC4U: 'bc4', ATI2: 'bc5', BC5U: 'bc5' };
+  // liefert die größte Stufe als Rohdaten + Format
+  function readEDDS(buf) {
+    var d = buf instanceof Uint8Array ? buf : new Uint8Array(buf), dv = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    if (String.fromCharCode(d[0], d[1], d[2], d[3]) !== 'DDS ') throw new Error('Das ist keine EDDS-Datei.');
+    var h = dv.getUint32(12, true), w = dv.getUint32(16, true), mips = Math.max(1, dv.getUint32(28, true));
+    var fcc = String.fromCharCode(d[84], d[85], d[86], d[87]), p = 128, fmt;
+    if (fcc === 'DX10') { fmt = DXGI[dv.getUint32(128, true)]; p += 20; }
+    else if (fcc === '\0\0\0\0') fmt = dv.getUint32(88, true) === 32 ? 'bgra' : null;
+    else fmt = FCC[fcc];
+    if (!fmt) throw new Error('EDDS: unbekanntes Format (' + fcc.replace(/\0/g, '0') + ')');
+    var tab = [];
+    for (var i = 0; i < mips; i++) { tab.push({ tag: String.fromCharCode(d[p], d[p + 1], d[p + 2], d[p + 3]), size: dv.getUint32(p + 4, true) }); p += 8; }
+    for (i = 0; i < tab.length - 1; i++) p += tab[i].size;
+    var last = tab[tab.length - 1], raw = d.subarray(p, p + last.size);
+    if (last.tag === 'LZ4 ') raw = lz4mip(raw);
+    return { width: w, height: h, fmt: fmt, raw: raw };
+  }
+  function bc4block(src, p, out, w, h, bx, by, ch, stride) {
+    var a0 = src[p], a1 = src[p + 1], av = [a0, a1];
+    if (a0 > a1) for (var i = 1; i < 7; i++) av.push(((7 - i) * a0 + i * a1) / 7 | 0);
+    else { for (i = 1; i < 5; i++) av.push(((5 - i) * a0 + i * a1) / 5 | 0); av.push(0, 255); }
+    var bits = 0, mul = 1; for (i = 0; i < 6; i++) { bits += src[p + 2 + i] * mul; mul *= 256; }
+    for (i = 0; i < 16; i++) { var x = bx * 4 + (i & 3), y = by * 4 + (i >> 2), v = av[bits % 8]; bits = Math.floor(bits / 8); if (x < w && y < h) out[(y * w + x) * 4 + ch] = v; }
+  }
+  // Formate, die ohne Grafikkarte gehen
+  function decodeEDDSsoft(t) {
+    var w = t.width, h = t.height, r = t.raw, out = new Uint8Array(w * h * 4), i, bw = Math.max(1, (w + 3) >> 2), bh = Math.max(1, (h + 3) >> 2);
+    if (t.fmt === 'bc1') return decodeDXT(r, w, h, false);
+    if (t.fmt === 'bc3') return decodeDXT(r, w, h, true);
+    if (t.fmt === 'bgra' || t.fmt === 'rgba') { for (i = 0; i < w * h; i++) { var o = i * 4; if (t.fmt === 'bgra') { out[o] = r[o + 2]; out[o + 1] = r[o + 1]; out[o + 2] = r[o]; } else { out[o] = r[o]; out[o + 1] = r[o + 1]; out[o + 2] = r[o + 2]; } out[o + 3] = r[o + 3]; } return out; }
+    if (t.fmt === 'r8') { for (i = 0; i < w * h; i++) { out[i * 4] = out[i * 4 + 1] = out[i * 4 + 2] = r[i]; out[i * 4 + 3] = 255; } return out; }
+    if (t.fmt === 'bc4' || t.fmt === 'bc5') {
+      var bs = t.fmt === 'bc4' ? 8 : 16, pp = 0;
+      for (var by = 0; by < bh; by++) for (var bx = 0; bx < bw; bx++) { bc4block(r, pp, out, w, h, bx, by, 0); if (bs === 16) bc4block(r, pp + 8, out, w, h, bx, by, 1); pp += bs; }
+      for (i = 0; i < w * h; i++) { if (t.fmt === 'bc4') out[i * 4 + 1] = out[i * 4 + 2] = out[i * 4]; else out[i * 4 + 2] = 255; out[i * 4 + 3] = 255; }
+      return out;
+    }
+    return null; // bc2/bc6/bc7: über die Grafikkarte
+  }
   // ---------- Umrechnung ins OBJ-Koordinatensystem ----------
   // Arma: linkshändig, Y oben. OBJ/Blender: rechtshändig, Y oben -> Z spiegeln.
   function prepareLod(lod, opt) {
@@ -1025,7 +1120,7 @@ body.noxmas .snowcap::before{display:none}
              + P[a + 2] * (P[b] * P[c + 1] - P[b + 1] * P[c]);
       }
     });
-    var reverse = vol < 0;
+    var reverse = lod.fixedWinding ? false : vol < 0;
     if (opt.flip) reverse = !reverse;
     var faces = lod.faces.map(function (f) { return reverse ? { v: f.v.slice().reverse(), tex: f.tex, mat: f.mat, sec: f.sec } : f; });
     // Normalen an die Flächen anpassen
@@ -1325,7 +1420,7 @@ body.noxmas .snowcap::before{display:none}
   root.MK = {
     materialKey: materialKey, autoColor: autoColor, collectMaterials: collectMaterials,
     texScore: texScore, isBadMap: function (n) { return BAD.test(stripExt(baseName(n))); },
-    parseXOB: parseXOB, parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
+    parseXOB: parseXOB, readEDDS: readEDDS, decodeEDDSsoft: decodeEDDSsoft, parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
     parseP3D: parseP3D, defaultLod: defaultLod, prepareLod: prepareLod, buildOBJ: buildOBJ, buildMTL: buildMTL,
     decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x, _lzss: lzss
   };
@@ -1783,8 +1878,8 @@ async function addEntries(entries){
   var hasModel = entries.some(function(e){ return /\.(p3d|xob|obj)$/i.test(e.name); });
   for (var i=0;i<entries.length;i++){
     var en=entries[i], name=en.name, low=name.toLowerCase();
-    if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
-    if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; }
+    if (/\.(mtl|png|jpe?g|bmp|webp|tga|emat)$/.test(low)) { paaPool[low]=en; continue; }
+    if (/\.(pa[ac]|edds)$/.test(low)) { paaPool[low]=en; }
     else if (!/\.(p3d|xob|obj|pbo|pak|zip)$/.test(low)) continue;
     var kind = /\.(p3d|xob)$/.test(low) ? 'p3d' : low.endsWith('.obj') ? 'obj' : /\.(pbo|pak|zip)$/.test(low) ? 'arc' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
@@ -1815,6 +1910,7 @@ async function addEntries(entries){
 }
 
 async function readEntry(en){
+  if (en.lazy) return await en.lazy.get();
   if (en.file) return new Uint8Array(await en.file.arrayBuffer());
   return await mk.readFile(en.path);
 }
@@ -1834,8 +1930,8 @@ async function load(f){
       var c={ m:0, t:0, o:0 }, inner=[];
       for (var ai2=0; ai2<f.arc.entries.length; ai2++){
         var e=f.arc.entries[ai2], ln=e.name.toLowerCase(), bn=MK.baseName(e.name);
-        if (/\.(p3d|xob|obj)$/.test(ln)){ c.m++; inner.push({ name:bn, file:new File([await e.get()], bn), arc:f.name }); }
-        else if (/\.(pa[ac]|png|jpe?g|bmp|webp|tga|mtl)$/.test(ln)){ c.t++; var ten={ name:bn, file:new File([await e.get()], bn) }; paaPool[bn.toLowerCase()]=ten; if (isTexName(bn)) libAdd(ten, true); }
+        if (/\.(p3d|xob|obj)$/.test(ln)){ c.m++; inner.push({ name:bn, lazy:e, arc:f.name }); }
+        else if (/\.(pa[ac]|png|jpe?g|bmp|webp|tga|mtl|edds|emat)$/.test(ln)){ if (!/\.(mtl|emat)$/.test(ln)) c.t++; var ten={ name:bn, lazy:e }; paaPool[bn.toLowerCase()]=ten; paaPool['path:'+ln]=ten; if (isTexName(bn)) libAdd(ten, true); }
         else c.o++;
       }
       f.arcCount=c; f.inner=inner;
@@ -1845,7 +1941,7 @@ async function load(f){
     var buf = await readEntry(f.entry);
     f.size = buf.length;
     if (f.kind==='paa'){
-      f.img = MK.decodePAA(buf);
+      f.img = await decodeTexBytes(buf, f.name);
       hx('texture '+f.img.format+' · '+f.img.width+'x'+f.img.height+(f.img.hasAlpha?' · alpha':'')+' · '+buf.length+' bytes');
       f.status='wait'; f.err=''; render(); return;
     }
@@ -1882,13 +1978,83 @@ async function loadMtl(f){
 }
 
 async function findPaa(f, tex){
-  var base = MK.baseName(tex).toLowerCase();
-  if (!/\.(paa|pac|png|jpe?g|bmp|webp)$/.test(base)) return null;
+  var base = MK.baseName(tex).toLowerCase(), rel=String(tex).replace(/\\/g,'/').replace(/^\/+/,'').toLowerCase();
+  if (!/\.(paa|pac|png|jpe?g|bmp|webp|edds|emat)$/.test(base)) return null;
+  var pooled = paaPool['path:'+rel] || null;
+  if (!pooled) Object.keys(paaPool).some(function(k){ if (k.indexOf('path:')===0 && (k.endsWith('/'+rel) || rel.endsWith(k.slice(5)))) { pooled=paaPool[k]; return true; } return false; });
+  if (pooled) return pooled;
   if (mk && f.path){
     var p = await mk.findTexture(f.path, tex);
-    return p ? { path:p } : null;
+    if (p) return { path:p };
   }
   return paaPool[base] || null;
+}
+
+// ---------- Texturen aller Formate lesen (PAA, EDDS, PNG/JPG) ----------
+var gpuDec=null;
+function gpuDecode(t){
+  try {
+    if (!gpuDec){
+      var c=document.createElement('canvas'), gl=c.getContext('webgl2'); if (!gl) return null;
+      var vs='#version 300 es\nvoid main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.-1.,0.,1.);}';
+      var fs='#version 300 es\nprecision highp float;uniform sampler2D t;uniform int h;out vec4 o;void main(){ivec2 q=ivec2(gl_FragCoord.xy);o=texelFetch(t,ivec2(q.x,h-1-q.y),0);}';
+      function sh(ty,src){ var x=gl.createShader(ty); gl.shaderSource(x,src); gl.compileShader(x); return x; }
+      var pr=gl.createProgram(); gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr);
+      gpuDec={ c:c, gl:gl, pr:pr, bptc:gl.getExtension('EXT_texture_compression_bptc'), s3tc:gl.getExtension('WEBGL_compressed_texture_s3tc') };
+    }
+    var g=gpuDec, gl=g.gl, w=t.width, h=t.height;
+    var en = t.fmt==='bc7' ? (g.bptc && g.bptc.COMPRESSED_RGBA_BPTC_UNORM_EXT) : t.fmt==='bc6' ? (g.bptc && g.bptc.COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT_EXT) : t.fmt==='bc2' ? (g.s3tc && g.s3tc.COMPRESSED_RGBA_S3TC_DXT3_EXT) : null;
+    if (!en) return null;
+    var bw=Math.max(1,(w+3)>>2), bh=Math.max(1,(h+3)>>2), need=bw*bh*16;
+    var data=t.raw.length>=need ? t.raw.subarray(0,need) : null; if (!data) return null;
+    g.c.width=bw*4; g.c.height=bh*4;
+    var tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex);
+    gl.compressedTexImage2D(gl.TEXTURE_2D,0,en,bw*4,bh*4,0,data);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+    gl.viewport(0,0,bw*4,bh*4); gl.useProgram(g.pr); gl.uniform1i(gl.getUniformLocation(g.pr,'h'),bh*4);
+    gl.drawArrays(gl.TRIANGLES,0,3);
+    var px=new Uint8Array(bw*4*bh*4*4); gl.readPixels(0,0,bw*4,bh*4,gl.RGBA,gl.UNSIGNED_BYTE,px);
+    gl.deleteTexture(tex);
+    // Zeilen kamen von unten nach oben – umdrehen und auf echte Größe zuschneiden
+    var out=new Uint8Array(w*h*4), rw=bw*4*4;
+    for (var y=0;y<h;y++) out.set(px.subarray((bh*4-1-y)*rw, (bh*4-1-y)*rw + w*4), y*w*4);
+    return out;
+  } catch(e){ return null; }
+}
+function decodeEDDS(bytes, name){
+  var t=MK.readEDDS(bytes), px=MK.decodeEDDSsoft(t) || gpuDecode(t);
+  if (!px) throw new Error('EDDS-Format '+t.fmt.toUpperCase()+' wird von deiner Grafikkarte nicht unterstützt.');
+  // BCR/MCR/NMO usw.: im Alphakanal steckt keine Transparenz (z. B. Rauheit) → deckend machen
+  var realAlpha=/_(bca|ca|co)\.edds$/i.test(name||''), hasAlpha=false;
+  if (!realAlpha) for (var i=3;i<px.length;i+=4) px[i]=255; else for (i=3;i<px.length;i+=4) if (px[i]<250){ hasAlpha=true; break; }
+  return { width:t.width, height:t.height, rgba:px, hasAlpha:hasAlpha, format:'EDDS '+t.fmt.toUpperCase() };
+}
+async function decodeTexBytes(bytes, name){
+  var n=String(name||'').toLowerCase();
+  if (/\.pa[ac]$/.test(n)) return MK.decodePAA(bytes);
+  if (/\.edds$/.test(n)) return decodeEDDS(bytes, n);
+  return await decodeImageBytes(bytes);
+}
+// Enfusion-Material (.emat): passende Farbtextur heraussuchen
+function ematTexture(text){
+  var re=/(\w+)\s+"\{[0-9A-Fa-f]+\}([^"]+\.edds)"/g, m, paths=[];
+  while ((m=re.exec(text))) paths.push([m[1], m[2]]);
+  if (!paths.length) return null;
+  var keys=['BCRMap','ColorMap','Color','BCR','Albedo','Diffuse'];
+  for (var k=0;k<keys.length;k++) for (var i=0;i<paths.length;i++) if (paths[i][0].toLowerCase().indexOf(keys[k].toLowerCase())>=0) return paths[i][1];
+  for (i=0;i<paths.length;i++) if (/_(BCR|BCA|CO|CA)\.edds$/i.test(paths[i][1])) return paths[i][1];
+  return paths[0][1];
+}
+// Material- oder Texturpfad → Bild; find(pfad) liefert einen Eintrag zum Lesen
+async function resolveTex(texPath, find){
+  if (/\.emat$/i.test(texPath)){
+    var me=await find(texPath); if (!me) return null;
+    var tp=ematTexture(new TextDecoder('utf-8').decode(await readEntry(me))); if (!tp) return null;
+    var te=await find(tp); if (!te) return null;
+    var img=decodeEDDS(await readEntry(te), tp); img.name=MK.baseName(tp); return img;
+  }
+  var e=await find(texPath); if (!e) return null;
+  var im=await decodeTexBytes(await readEntry(e), texPath); im.name=MK.baseName(texPath); return im;
 }
 
 async function loadTextures(f){
@@ -1901,10 +2067,8 @@ async function loadTextures(f){
       if (!t || t.charAt(0)==='#' || seen[t]) continue;
       seen[t]=1;
       try {
-        var en = await findPaa(f, t);
-        if (!en) { f.tex[t]={missing:true}; continue; }
-        var bytes = await readEntry(en);
-        f.tex[t] = /\.pa[ac]$/i.test(t) ? MK.decodePAA(bytes) : await decodeImageBytes(bytes);
+        var img = await resolveTex(t, function(p){ return findPaa(f, p); });
+        f.tex[t] = img || { missing:true };
       } catch(e){ f.tex[t]={error:clean(e)}; }
     }
   }
@@ -1990,8 +2154,8 @@ async function extractArc(f, dirOverride){
   }
   try {
     var ents=f.arc.entries, texBy={}, outs=[], nModel=0, nTex=0, bad=0;
-    ents.forEach(function(e){ var ln=e.name.toLowerCase(); if (/\.(pa[ac]|png|jpe?g)$/.test(ln)) texBy[MK.baseName(ln)]=e; });
-    var pngCache={}, written=0;
+    ents.forEach(function(e){ var ln=e.name.toLowerCase(); if (/\.(pa[ac]|png|jpe?g|edds|emat)$/.test(ln)){ texBy[MK.baseName(ln)]=e; texBy['path:'+ln]=e; } });
+    var pngCache={}, texDone={}, written=0;
     async function flush(){
       if (!(mk && f.path) || !outs.length) return;
       var groups={}, sep=root.indexOf('\\')>=0?'\\':'/';
@@ -2000,11 +2164,12 @@ async function extractArc(f, dirOverride){
       for (var g=0; g<keys.length; g++) await mk.writeFiles(keys[g] ? root+sep+keys[g].split('/').join(sep) : root, groups[keys[g]]);
       written+=outs.length; outs=[];
     }
+    function findInArc(p){ var l=String(p).replace(/\\/g,'/').replace(/^\/+/,'').toLowerCase(), e=texBy['path:'+l]||texBy[MK.baseName(l)]; return Promise.resolve(e ? { lazy:e } : null); }
     async function texPng(texPath){
-      var key=MK.baseName(String(texPath).toLowerCase()), e=texBy[key]; if (!e) return null;
+      var key=String(texPath).toLowerCase();
       if (pngCache[key]!==undefined) return pngCache[key];
-      try { var bytes=await e.get(), img=/\.pa[ac]$/.test(key)?MK.decodePAA(bytes):await decodeImageBytes(bytes); pngCache[key]={ img:img, png:await rgbaToPng(img), name:MK.safeName(MK.stripExt(MK.baseName(e.name)))+'.png' }; }
-      catch(x){ pngCache[key]=null; }
+      try { var img=await resolveTex(texPath, findInArc); pngCache[key]= img ? { img:img, png:await rgbaToPng(img), name:MK.safeName(MK.stripExt(img.name||MK.baseName(texPath)))+'.png' } : null; }
+      catch(x){ pngCache[key]=null; hx('texture '+texPath+': '+clean(x),'w'); }
       return pngCache[key];
     }
     for (var i=0;i<ents.length;i++){
@@ -2014,14 +2179,14 @@ async function extractArc(f, dirOverride){
       outs.push({ sub:sub, name:bn, data:data });
       if (mk && f.path && outs.length>=40) await flush();
       try {
-        if (/\.pa[ac]$/.test(ln)){
-          var pi=await texPng(e.name); if (pi){ outs.push({ sub:sub, name:pi.name, data:pi.png }); nTex++; }
+        if (/\.(pa[ac]|edds)$/.test(ln)){
+          var pi=await texPng(e.name); if (pi && !texDone[sub+'/'+pi.name]){ texDone[sub+'/'+pi.name]=1; outs.push({ sub:sub, name:pi.name, data:pi.png }); nTex++; }
         } else if (/\.(p3d|xob)$/.test(ln)){
           var m=/\.xob$/.test(ln)?MK.parseXOB(data):MK.parseP3D(data), nm=MK.safeName(MK.stripExt(bn));
           var r=MK.buildOBJ(m, { name:nm, lods:[MK.defaultLod(m)], scale:S.scale, flip:S.flip, mtl:true, split:S.split });
           for (var k=0;k<r.materials.length;k++){
             var mt=r.materials[k]; if (!mt.tex || mt.tex.charAt(0)==='#') continue;
-            var tp=await texPng(mt.tex); if (tp){ mt.image=tp.name; mt.hasAlpha=tp.img.hasAlpha; if (!outs.some(function(o){ return o.sub===sub && o.name===tp.name; })) outs.push({ sub:sub, name:tp.name, data:tp.png }); }
+            var tp=await texPng(mt.tex); if (tp){ mt.image=tp.name; mt.hasAlpha=tp.img.hasAlpha; if (!texDone[sub+'/'+tp.name]){ texDone[sub+'/'+tp.name]=1; outs.push({ sub:sub, name:tp.name, data:tp.png }); } }
           }
           outs.push({ sub:sub, name:nm+'.obj', data:r.obj }, { sub:sub, name:nm+'.mtl', data:MK.buildMTL(r.materials, nm) });
           nModel++;
@@ -2041,6 +2206,34 @@ async function extractArc(f, dirOverride){
   } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err,'err'); hx('ERROR '+f.err,'e'); }
   $('convertOne').textContent='Umwandeln';
   render(); if (f===selected) showErr(f.err);
+}
+
+// ---------- Beispiel-Paket (verschiedene XOB/EDDS/EMAT für die Weiterentwicklung) ----------
+async function makeSamples(f){
+  var ents=f.arc.entries, pick=[], seen={};
+  function take(list, n){ list.forEach(function(e){ if (pick.length<200 && n>0 && !seen[e.name]){ seen[e.name]=1; pick.push(e); n--; } }); }
+  var xob=ents.filter(function(e){ return /\.xob$/i.test(e.name); }).sort(function(a,b){ return a.length-b.length; });
+  var small=xob.filter(function(e){ return e.length<300000; });
+  var step=Math.max(1, Math.floor(small.length/24)), spread=[]; for (var i=0;i<small.length;i+=step) spread.push(small[i]);
+  take(small.slice(0,6), 6); take(spread, 24);
+  ['Weapons','Characters','Clothes','Vehicles','Structures','Props','Items','Equipment'].forEach(function(c){ take(xob.filter(function(e){ return e.name.indexOf('/'+c+'/')>=0 && e.length<1500000; }), 2); });
+  pick.slice().forEach(function(e){
+    var dir=e.name.replace(/[^\/]*$/,'');
+    take(ents.filter(function(x){ return x.name.indexOf(dir)===0 && /\.emat$/i.test(x.name); }), 1);
+    take(ents.filter(function(x){ return x.name.indexOf(dir)===0 && /_bcr\.edds$/i.test(x.name) && x.length<3000000; }), 1);
+  });
+  take(ents.filter(function(e){ return /_bcr\.edds$/i.test(e.name) && e.length<400000; }), 4);
+  var out=[], total=0;
+  for (var k=0;k<pick.length;k++){
+    if (total>45*1024*1024) break;
+    try { var d=await pick[k].get(); total+=d.length; out.push({ name:pick[k].name, data:d }); } catch(e){}
+  }
+  out.push({ name:'liste.txt', data: xob.slice(0,5000).map(function(e){ return e.length+'\t'+e.name; }).join('\n') });
+  var zip=MK.makeZip(out), bytes=new Uint8Array(await zip.arrayBuffer()), name='xob_beispiele.zip';
+  if (mk && f.path){ var dir2=f.path.replace(/[\\\/][^\\\/]*$/,''); await mk.writeFiles(dir2,[{ name:name, data:bytes }]); mk.openFolder(dir2); }
+  else { var a=document.createElement('a'); a.href=URL.createObjectURL(zip); a.download=name; a.click(); }
+  toast(name+' erstellt ('+(Math.round(bytes.length/104857.6)/10)+' MB, '+(out.length-1)+' Dateien) – zieh sie in den Chat.','ok',8000);
+  hx('samples '+(out.length-1)+' files ✓');
 }
 
 // ---------- Blender-Verbindung ----------
@@ -2179,7 +2372,7 @@ $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFo
 $('clear').onclick = function(){ files=[]; selected=null; paaPool={}; render(); select(null); };
 
 // ---------- Liste ----------
-var GROUPS=[['arc','Archive (PBO/PAK)'],['p3d','Modelle (P3D/XOB)'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
+var GROUPS=[['arc','Archive (PBO/PAK)'],['p3d','Modelle (P3D/XOB)'],['obj','OBJ-Modelle'],['paa','Texturen (PAA/EDDS)']];
 function visible(){
   var q=($('search').value||'').trim().toLowerCase();
   return files.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q)>=0; });
@@ -2240,8 +2433,10 @@ function select(f){
   showImage(f && f.img ? f : null);
   if (!f || !f.model) renderMats(null);
   if (f && f.arc){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none'; renderMats(null);
-    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br>'+(f.arcExt||'')+(f.arc.format==='Enfusion-PAK'?'<br><span style="color:var(--yellow)">.xob werden zu OBJ (Form, noch ohne Texturkoordinaten) · .edds werden vorerst nur entpackt.</span>':'')+'<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>';
-    $('viewInfo').querySelector('b').textContent=f.name; return; }
+    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br>'+(f.arcExt||'')+(f.arc.format==='Enfusion-PAK'?'<br><span style="color:var(--green)">.xob → OBJ mit Texturen · .edds → PNG</span>':'')+'<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>'+(f.arc.format==='Enfusion-PAK'?'<br><br><span style="pointer-events:auto"><button class="btn" id="sampleBtn">📦 Beispiel-Paket für die XOB-Entwicklung erstellen</button></span>':'');
+    $('viewInfo').querySelector('b').textContent=f.name;
+    var sb=document.getElementById('sampleBtn'); if (sb) sb.onclick=function(){ makeSamples(f); };
+    return; }
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
     $('viewInfo').innerHTML='<b></b><br>Textur · '+f.img.format+' · '+f.img.width+' × '+f.img.height+' Pixel'+(f.img.hasAlpha?' · mit Transparenz':'');
     $('viewInfo').querySelector('b').textContent=f.name; return; }
@@ -2261,7 +2456,7 @@ function refreshView(){
   viewer.set(f, li);
   renderMats(f, li);
   var texCount=0, texFound=0; Object.keys(f.tex).forEach(function(k){ texCount++; if (f.tex[k].rgba) texFound++; });
-  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(f.model.xob?' · Arma Reforger (XOB) · Texturkoordinaten folgen noch':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
+  $('viewInfo').innerHTML='<b></b><br>'+lod.name+' · '+lod.nPoints+' Punkte · '+lod.nFaces+' Flächen'+(texCount?' · Texturen '+texFound+'/'+texCount:'')+(f.model.odol?' · binarisiert (ODOL v'+f.model.version+')':'')+(f.model.xob?' · Arma Reforger (XOB)':'')+(lod.failed?'<br><span style="color:var(--red)">Diese LOD konnte nicht gelesen werden: '+lod.failed+'</span>':'');
   $('viewInfo').querySelector('b').textContent=f.name;
 }
 
@@ -2344,7 +2539,7 @@ $('texIn').onchange=async function(){
 
 // ---------- Texturen-Sammlung, automatische Suche, Textur-Browser ----------
 var lib=[], libKeys={};
-function isTexName(n){ return /\.(paa|pac|png|jpe?g|bmp|webp)$/i.test(n); }
+function isTexName(n){ return /\.(paa|pac|png|jpe?g|bmp|webp|edds)$/i.test(n); }
 function libAdd(en, user){
   var k=(en.path||('datei:'+en.name+':'+(en.file?en.file.size:''))).toLowerCase();
   if (libKeys[k]){ if (user) libKeys[k].user=true; return libKeys[k]; }
@@ -2360,7 +2555,7 @@ async function libFor(f){
   return lib;
 }
 async function libImg(it){
-  if (!it.img){ var b=await readEntry(it.en); it.img=/\.pa[ac]$/i.test(it.name) ? MK.decodePAA(b) : await decodeImageBytes(b); }
+  if (!it.img){ var b=await readEntry(it.en); it.img=await decodeTexBytes(b, it.name); }
   return it.img;
 }
 async function libThumb(it){
@@ -2368,6 +2563,7 @@ async function libThumb(it){
   if (it.img) return (it.thumb=thumb(it.img));
   var b=await readEntry(it.en), img;
   if (/\.pa[ac]$/i.test(it.name)) img=MK.decodePAA(b,96);
+  else if (/\.edds$/i.test(it.name)) img=decodeEDDS(b, it.name);
   else { var bmp=await createImageBitmap(new Blob([b]),{resizeWidth:96,resizeQuality:'medium'}); img=bitmapToImg(bmp); }
   return (it.thumb=thumb(img));
 }
