@@ -148,8 +148,8 @@ body.hacker .btn.blend{color:#ffb15c;border-color:#a85a08}
 <main>
   <section class="col">
     <div class="colhead">Dateien <span class="sp"></span><span id="count"></span></div>
-    <div id="drop" class="snowcap"><b>P3D, OBJ oder PAA hier reinziehen</b>oder klicken zum Auswählen</div>
-    <input type="file" id="fileIn" accept=".p3d,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg" multiple hidden>
+    <div id="drop" class="snowcap"><b>P3D, OBJ, PAA oder PBO/PAK hier reinziehen</b>oder klicken zum Auswählen</div>
+    <input type="file" id="fileIn" accept=".p3d,.obj,.mtl,.paa,.pac,.png,.jpg,.jpeg,.pbo,.pak,.zip" multiple hidden>
     <div class="tools"><input id="search" placeholder="Suchen …" spellcheck="false"><label class="selall"><input type="checkbox" id="selAll">Alle auswählen</label></div>
     <div id="list"><div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div></div>
     <div class="actions">
@@ -1255,7 +1255,7 @@ body.noxmas .snowcap::before{display:none}
     texScore: texScore, isBadMap: function (n) { return BAD.test(stripExt(baseName(n))); },
     parseOBJ: parseOBJ, parseMTL: parseMTL, applyMTL: applyMTL,
     parseP3D: parseP3D, defaultLod: defaultLod, prepareLod: prepareLod, buildOBJ: buildOBJ, buildMTL: buildMTL,
-    decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x
+    decodePAA: decodePAA, makeZip: makeZip, baseName: baseName, stripExt: stripExt, safeName: safeName, _lzo: lzo1x, _lzss: lzss
   };
 })(typeof window !== 'undefined' ? window : globalThis);
 
@@ -1443,6 +1443,116 @@ body.noxmas .snowcap::before{display:none}
   root.TexGen = { generate: generate, parse: parse };
 })(typeof window !== 'undefined' ? window : globalThis);
 
+/* Melonenkonverter – Archive lesen (PBO, ZIP/PAK, PACK) */
+(function (root) {
+  'use strict';
+  function u32(u8, p) { return (u8[p] | (u8[p + 1] << 8) | (u8[p + 2] << 16) | (u8[p + 3] << 24)) >>> 0; }
+  function u16(u8, p) { return u8[p] | (u8[p + 1] << 8); }
+  function str(u8, p, end) { var s = ''; while (p < end && u8[p] !== 0) { s += String.fromCharCode(u8[p]); p++; } return { s: s, p: p + 1 }; }
+  function utf8(bytes) { try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch (e) { var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return s; } }
+  function norm(p) { return String(p).replace(/\\/g, '/').replace(/^\/+/, ''); }
+
+  // ---------- PBO (Arma / DayZ) ----------
+  function readPBO(u8) {
+    var p = 0, entries = [], props = {}, first = true;
+    for (;;) {
+      if (p >= u8.length) throw new Error('PBO ist unvollständig.');
+      var r = str(u8, p, u8.length); p = r.p;
+      if (p + 20 > u8.length) throw new Error('PBO ist unvollständig.');
+      var method = u32(u8, p), orig = u32(u8, p + 4), size = u32(u8, p + 16); p += 20;
+      if (r.s === '') {
+        if (first && method === 0x56657273) { // "Vers": Eigenschaften
+          for (;;) { var k = str(u8, p, u8.length); p = k.p; if (!k.s) break; var v = str(u8, p, u8.length); p = v.p; props[k.s.toLowerCase()] = v.s; }
+          first = false; continue;
+        }
+        break; // Ende der Liste
+      }
+      first = false;
+      entries.push({ name: norm(r.s), method: method, orig: orig, size: size });
+    }
+    var off = p;
+    entries.forEach(function (e) { e.offset = off; off += e.size; });
+    if (off > u8.length) throw new Error('PBO ist beschädigt (Daten fehlen).');
+    entries.forEach(function (e) {
+      e.get = function () {
+        var raw = u8.subarray(e.offset, e.offset + e.size);
+        if (e.method === 0x43707273 || (e.orig && e.orig !== e.size)) return MK._lzss(raw, e.orig);
+        return raw;
+      };
+      e.length = e.orig || e.size;
+    });
+    return { format: 'PBO', prefix: norm(props.prefix || ''), props: props, entries: entries };
+  }
+
+  // ---------- ZIP (viele .pak sind umbenannte ZIPs) ----------
+  async function inflateRaw(data) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('Entpacken wird hier nicht unterstützt.');
+    var ds = new DecompressionStream('deflate-raw');
+    var stream = new Blob([data]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  function readZIP(u8) {
+    var eocd = -1;
+    for (var i = u8.length - 22; i >= Math.max(0, u8.length - 65600); i--) if (u32(u8, i) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('ZIP-Verzeichnis nicht gefunden.');
+    var n = u16(u8, eocd + 10), cdOff = u32(u8, eocd + 16), p = cdOff, entries = [];
+    if (cdOff === 0xFFFFFFFF) throw new Error('Sehr große ZIP64-Archive werden nicht unterstützt.');
+    for (i = 0; i < n; i++) {
+      if (u32(u8, p) !== 0x02014b50) throw new Error('ZIP-Verzeichnis beschädigt.');
+      var flags = u16(u8, p + 8), method = u16(u8, p + 10), csize = u32(u8, p + 20), usize = u32(u8, p + 24);
+      var nl = u16(u8, p + 28), xl = u16(u8, p + 30), cl = u16(u8, p + 32), lho = u32(u8, p + 42);
+      var name = utf8(u8.subarray(p + 46, p + 46 + nl));
+      p += 46 + nl + xl + cl;
+      if (/\/$/.test(name)) continue;
+      (function (name, method, csize, usize, lho, flags) {
+        entries.push({
+          name: norm(name), length: usize, method: method, encrypted: !!(flags & 1),
+          get: async function () {
+            if (flags & 1) throw new Error('Datei ist verschlüsselt.');
+            var ln = u16(u8, lho + 26), lx = u16(u8, lho + 28), start = lho + 30 + ln + lx, data = u8.subarray(start, start + csize);
+            if (method === 0) return data;
+            if (method === 8) return await inflateRaw(data);
+            throw new Error('Unbekannte Kompression (' + method + ').');
+          }
+        });
+      })(name, method, csize, usize, lho, flags);
+    }
+    return { format: 'ZIP', prefix: '', entries: entries };
+  }
+
+  // ---------- PACK (Quake/Half-Life-Stil) ----------
+  function readPACK(u8) {
+    var dirOff = u32(u8, 4), dirLen = u32(u8, 8), entries = [];
+    if (dirOff + dirLen > u8.length || dirLen % 64) throw new Error('PACK-Archiv beschädigt.');
+    for (var p = dirOff; p < dirOff + dirLen; p += 64) {
+      var nm = str(u8, p, p + 56).s, pos = u32(u8, p + 56), len = u32(u8, p + 60);
+      (function (pos, len) { entries.push({ name: norm(nm), length: len, get: function () { return u8.subarray(pos, pos + len); } }); })(pos, len);
+    }
+    return { format: 'PACK', prefix: '', entries: entries };
+  }
+
+  function isUnrealPak(u8) {
+    // Unreal-Pak: Magic 0x5A6F12E1 im Fußbereich
+    for (var i = u8.length - 4; i >= Math.max(0, u8.length - 400); i--) if (u32(u8, i) === 0x5A6F12E1) return true;
+    return false;
+  }
+
+  function open(u8, name) {
+    var low = String(name || '').toLowerCase();
+    if (u8.length >= 4 && u32(u8, 0) === 0x04034b50) return readZIP(u8);
+    if (u8.length >= 12 && u8[0] === 0x50 && u8[1] === 0x41 && u8[2] === 0x43 && u8[3] === 0x4B) return readPACK(u8);
+    if (/\.pbo$/.test(low) || (u8[0] === 0 && u32(u8, 1) === 0x56657273)) return readPBO(u8);
+    if (isUnrealPak(u8)) {
+      var e = new Error('Das ist ein Unreal-Engine-Paket. Diese sind meist verschlüsselt und speichern Modelle in einem eigenen Format (.uasset), das sich hier nicht zuverlässig lesen lässt. Nimm dafür das kostenlose Tool FModel (Modelle als GLB/OBJ, Texturen als PNG exportieren).');
+      e.code = 'UNREAL'; throw e;
+    }
+    try { return readZIP(u8); } catch (x) {}
+    throw new Error('Unbekanntes Archivformat. Unterstützt: PBO (Arma/DayZ), ZIP-basierte PAK, PACK.');
+  }
+
+  root.MKArc = { open: open };
+})(typeof window !== 'undefined' ? window : globalThis);
+
 </script>
 <script>
 (function(){
@@ -1520,8 +1630,8 @@ async function addEntries(entries){
     var en=entries[i], name=en.name, low=name.toLowerCase();
     if (/\.(mtl|png|jpe?g|bmp|webp|tga)$/.test(low)) { paaPool[low]=en; continue; }
     if (/\.pa[ac]$/.test(low)) { paaPool[low]=en; }
-    else if (!/\.(p3d|obj)$/.test(low)) continue;
-    var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : 'paa';
+    else if (!/\.(p3d|obj|pbo|pak|zip)$/.test(low)) continue;
+    var kind = low.endsWith('.p3d') ? 'p3d' : low.endsWith('.obj') ? 'obj' : /\.(pbo|pak|zip)$/.test(low) ? 'arc' : 'paa';
     var ex = files.find(function(f){ return en.path ? f.path===en.path : f.name===name && !f.path; });
     if (ex) { ex.entry=en; ex.model=null; ex.img=null; ex.status='wait'; ex.err=''; added.push(ex); continue; }
     var f = { kind:kind, id:Math.random().toString(36).slice(2), name:name, path:en.path||'', entry:en, model:null, status:'wait', err:'', lodPick:null, tex:{}, out:'' };
@@ -1531,6 +1641,7 @@ async function addEntries(entries){
   batchDir=null;
   for (var k=0;k<added.length;k++){
     await load(added[k]);
+    if (added[k].inner && added[k].inner.length){ var inner=added[k].inner; added[k].inner=null; await addEntries(inner); }
     if (S.auto && (added[k].model || added[k].img)) await convert(added[k]);
   }
   batchDir=null;
@@ -1558,6 +1669,19 @@ async function load(f){
   try {
     var buf = await readEntry(f.entry);
     f.size = buf.length;
+    if (f.kind==='arc'){
+      f.arc = MKArc.open(buf, f.name);
+      var c={ m:0, t:0, o:0 }, inner=[];
+      for (var ai2=0; ai2<f.arc.entries.length; ai2++){
+        var e=f.arc.entries[ai2], ln=e.name.toLowerCase(), bn=MK.baseName(e.name);
+        if (/\.(p3d|obj)$/.test(ln)){ c.m++; inner.push({ name:bn, file:new File([await e.get()], bn), arc:f.name }); }
+        else if (/\.(pa[ac]|png|jpe?g|bmp|webp|tga|mtl)$/.test(ln)){ c.t++; var ten={ name:bn, file:new File([await e.get()], bn) }; paaPool[bn.toLowerCase()]=ten; if (isTexName(bn)) libAdd(ten, true); }
+        else c.o++;
+      }
+      f.arcCount=c; f.inner=inner;
+      hx('archive '+f.arc.format+' · '+f.arc.entries.length+' files · '+c.m+' models · '+c.t+' textures'+(f.arc.prefix?' · prefix '+f.arc.prefix:''));
+      f.status='wait'; f.err=''; render(); return;
+    }
     if (f.kind==='paa'){
       f.img = MK.decodePAA(buf);
       hx('texture '+f.img.format+' · '+f.img.width+'x'+f.img.height+(f.img.hasAlpha?' · alpha':'')+' · '+buf.length+' bytes');
@@ -1667,6 +1791,7 @@ async function buildOutputs(f){
 
 async function convert(f, dirOverride){
   if (f.kind==='paa') return convertPaa(f, dirOverride);
+  if (f.kind==='arc') return extractArc(f, dirOverride);
   if (!f.model) return;
   f.status='busy'; render(); hxBurst(2500); hxProgress('compile '+f.name);
   try {
@@ -1687,6 +1812,65 @@ async function convert(f, dirOverride){
     f.status='ok'; f.err='';
     out.forEach(function(o){ hx('write '+o.name+' ('+(o.data.length||0)+' bytes) ✓'); });
   } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err, 'err'); hx('ERROR '+f.err,'e'); }
+  render(); if (f===selected) showErr(f.err);
+}
+
+// ---------- Archive entpacken ----------
+async function extractArc(f, dirOverride){
+  if (!f.arc) return;
+  f.status='busy'; render(); hxBurst(5000); hxProgress('extract '+f.name);
+  var stem=MK.safeName(MK.stripExt(f.name))+'_entpackt', root;
+  if (mk && f.path){
+    if (dirOverride) root=dirOverride;
+    else { var d=await outDir(f); if (!d){ f.status='wait'; render(); log('Entpacken abgebrochen'); return; } root=d; }
+    root += (root.indexOf('\\')>=0?'\\':'/') + stem;
+  }
+  try {
+    var ents=f.arc.entries, texBy={}, outs=[], nModel=0, nTex=0, bad=0;
+    ents.forEach(function(e){ var ln=e.name.toLowerCase(); if (/\.(pa[ac]|png|jpe?g)$/.test(ln)) texBy[MK.baseName(ln)]=e; });
+    var pngCache={};
+    async function texPng(texPath){
+      var key=MK.baseName(String(texPath).toLowerCase()), e=texBy[key]; if (!e) return null;
+      if (pngCache[key]!==undefined) return pngCache[key];
+      try { var bytes=await e.get(), img=/\.pa[ac]$/.test(key)?MK.decodePAA(bytes):await decodeImageBytes(bytes); pngCache[key]={ img:img, png:await rgbaToPng(img), name:MK.safeName(MK.stripExt(MK.baseName(e.name)))+'.png' }; }
+      catch(x){ pngCache[key]=null; }
+      return pngCache[key];
+    }
+    for (var i=0;i<ents.length;i++){
+      var e=ents[i], ln=e.name.toLowerCase(), slash=e.name.lastIndexOf('/'), sub=slash>=0?e.name.slice(0,slash):'', bn=MK.baseName(e.name);
+      if (i%10===0){ $('convertOne').textContent=(i+1)+' / '+ents.length; await new Promise(function(r){ setTimeout(r,0); }); }
+      var data; try { data=await e.get(); } catch(x){ bad++; hx('skip '+e.name+': '+clean(x),'w'); continue; }
+      outs.push({ sub:sub, name:bn, data:data });
+      try {
+        if (/\.pa[ac]$/.test(ln)){
+          var pi=await texPng(e.name); if (pi){ outs.push({ sub:sub, name:pi.name, data:pi.png }); nTex++; }
+        } else if (/\.p3d$/.test(ln)){
+          var m=MK.parseP3D(data), nm=MK.safeName(MK.stripExt(bn));
+          var r=MK.buildOBJ(m, { name:nm, lods:[MK.defaultLod(m)], scale:S.scale, flip:S.flip, mtl:true, split:S.split });
+          for (var k=0;k<r.materials.length;k++){
+            var mt=r.materials[k]; if (!mt.tex || mt.tex.charAt(0)==='#') continue;
+            var tp=await texPng(mt.tex); if (tp){ mt.image=tp.name; mt.hasAlpha=tp.img.hasAlpha; if (!outs.some(function(o){ return o.sub===sub && o.name===tp.name; })) outs.push({ sub:sub, name:tp.name, data:tp.png }); }
+          }
+          outs.push({ sub:sub, name:nm+'.obj', data:r.obj }, { sub:sub, name:nm+'.mtl', data:MK.buildMTL(r.materials, nm) });
+          nModel++;
+        }
+      } catch(x){ bad++; hx('convert '+e.name+' fehlgeschlagen: '+clean(x),'w'); }
+    }
+    if (mk && f.path){
+      var groups={};
+      outs.forEach(function(o){ (groups[o.sub]=groups[o.sub]||[]).push({ name:o.name, data:o.data }); });
+      var sep=root.indexOf('\\')>=0?'\\':'/', keys=Object.keys(groups);
+      for (var g=0; g<keys.length; g++) await mk.writeFiles(keys[g] ? root+sep+keys[g].split('/').join(sep) : root, groups[keys[g]]);
+      f.out=root; if (f===selected) $('openOut').disabled=false;
+    } else {
+      var blob=MK.makeZip(outs.map(function(o){ return { name:(o.sub?o.sub+'/':'')+o.name, data:o.data }; }));
+      var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=stem+'.zip'; a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+    }
+    f.status='ok'; f.err='';
+    log('✓ '+f.name+' entpackt · '+nModel+' Modell(e) → OBJ · '+nTex+' Textur(en) → PNG'+(bad?' · '+bad+' Datei(en) übersprungen':''), 'ok');
+    hx('extract done · '+outs.length+' files ✓');
+  } catch(e){ f.status='err'; f.err=clean(e); log('✗ '+f.name+': '+f.err,'err'); hx('ERROR '+f.err,'e'); }
+  $('convertOne').textContent='Umwandeln';
   render(); if (f===selected) showErr(f.err);
 }
 
@@ -1735,7 +1919,7 @@ async function saveAddon(){
 
 async function outDir(f){
   var dir = f.path.replace(/[\\\/][^\\\/]*$/, '');
-  if (S.out==='sub') return dir + (dir.indexOf('\\')>=0?'\\':'/') + (f.kind==='paa'?'PNG':'OBJ');
+  if (S.out==='sub' && f.kind!=='arc') return dir + (dir.indexOf('\\')>=0?'\\':'/') + (f.kind==='paa'?'PNG':'OBJ');
   if (S.out==='folder'){
     if (!S.outDir){ var d=await mk.pickFolder(); if(!d) return null; S.outDir=d; save(); applyUI(); }
     return S.outDir;
@@ -1748,7 +1932,7 @@ async function outDir(f){
 }
 
 $('convertAll').onclick = async function(){
-  var todo=files.filter(function(f){ return f.checked && (f.model || f.img); });
+  var todo=files.filter(function(f){ return f.checked && (f.model || f.img || f.arc); });
   if (!todo.length) return;
   var btn=this; btn.disabled=true; batchDir=null; quiet=true;
   for (var i=0;i<todo.length;i++){ btn.textContent=(i+1)+' / '+todo.length+' …'; await convert(todo[i]); }
@@ -1826,12 +2010,12 @@ $('openOut').onclick = function(){ if (selected && selected.out && mk) mk.openFo
 $('clear').onclick = function(){ files=[]; selected=null; paaPool={}; render(); select(null); };
 
 // ---------- Liste ----------
-var GROUPS=[['p3d','P3D-Modelle'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
+var GROUPS=[['arc','Archive (PBO/PAK)'],['p3d','P3D-Modelle'],['obj','OBJ-Modelle'],['paa','PAA-Texturen']];
 function visible(){
   var q=($('search').value||'').trim().toLowerCase();
   return files.filter(function(f){ return !q || f.name.toLowerCase().indexOf(q)>=0; });
 }
-function ready(f){ return !!(f.model || f.img); }
+function ready(f){ return !!(f.model || f.img || f.arc); }
 function render(){
   var L=$('list'); L.innerHTML='';
   if (!files.length){ L.innerHTML='<div class="empty">Noch keine Dateien.<br>Texturen (.paa) werden automatisch gesucht.</div>'; }
@@ -1851,7 +2035,7 @@ function render(){
     if (closed) return;
     items.forEach(function(f){
       var d=document.createElement('div'); d.className='item'+(f===selected?' sel':'');
-      var sub = f.status==='err' ? 'Fehler' : f.img ? f.img.format+' · '+f.img.width+'×'+f.img.height : (f.model && f.kind==='obj') ? 'OBJ · '+f.model.lods[0].nFaces+' Flächen' : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
+      var sub = f.status==='err' ? 'Fehler' : f.arc ? f.arc.format+' · '+f.arc.entries.length+' Dateien · '+f.arcCount.m+' Modelle · '+f.arcCount.t+' Texturen' : f.img ? f.img.format+' · '+f.img.width+'×'+f.img.height : (f.model && f.kind==='obj') ? 'OBJ · '+f.model.lods[0].nFaces+' Flächen' : f.model ? f.model.lods.length+' LODs · '+f.model.lods[MK.defaultLod(f.model)].nFaces+' Flächen' : 'wird gelesen …';
       if (f.status==='ok') sub='Umgewandelt · '+sub;
       d.innerHTML='<input type="checkbox" class="cb"><span class="st '+({ok:'ok',err:'err',busy:'busy'}[f.status]||'')+'"></span><div style="min-width:0"><div class="n"></div><div class="s"></div></div><button class="x" title="Entfernen">✕</button>';
       var cb=d.querySelector('.cb'); cb.checked=!!f.checked; cb.disabled=!ready(f);
@@ -1880,12 +2064,15 @@ function select(f){
   selected=f; render();
   var sel=$('lodSel'); sel.innerHTML='';
   showErr(f && f.err);
-  $('convertOne').disabled = !(f && (f.model || f.img));
+  $('convertOne').disabled = !(f && (f.model || f.img || f.arc));
   $('openOut').disabled = !(f && f.out && mk);
-  $('saveAs').disabled = !(f && (f.model || f.img) && mk);
+  $('saveAs').disabled = !(f && (f.model || f.img || f.arc) && mk);
   $('toBlender').disabled = !(f && f.model);
   showImage(f && f.img ? f : null);
   if (!f || !f.model) renderMats(null);
+  if (f && f.arc){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none'; renderMats(null);
+    $('viewInfo').innerHTML='<b></b><br>Archiv · '+f.arc.format+(f.arc.prefix?' · Pfad '+f.arc.prefix:'')+' · '+f.arc.entries.length+' Dateien<br>'+f.arcCount.m+' Modelle (links in der Liste) · '+f.arcCount.t+' Texturen · '+f.arcCount.o+' sonstige<br><br><span style="color:var(--text)">„Umwandeln“ entpackt alles und macht Modelle zu OBJ und Texturen zu PNG.</span>';
+    $('viewInfo').querySelector('b').textContent=f.name; return; }
   if (f && f.img){ sel.disabled=true; viewer.set(null); $('viewEmpty').style.display='none';
     $('viewInfo').innerHTML='<b></b><br>Textur · '+f.img.format+' · '+f.img.width+' × '+f.img.height+' Pixel'+(f.img.hasAlpha?' · mit Transparenz':'');
     $('viewInfo').querySelector('b').textContent=f.name; return; }

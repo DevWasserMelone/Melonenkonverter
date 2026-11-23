@@ -205,7 +205,7 @@ ipcMain.handle('l:publish', async (e, d) => {
 // ---------- Programm (Konverter) ----------
 ipcMain.handle('a:version', () => current().version);
 ipcMain.handle('a:pickFiles', async () => {
-  const r = await dialog.showOpenDialog(appWin, { title: 'Dateien wählen', filters: [{ name: 'P3D, OBJ und PAA', extensions: ['p3d', 'obj', 'paa', 'pac'] }], properties: ['openFile', 'multiSelections'] });
+  const r = await dialog.showOpenDialog(appWin, { title: 'Dateien wählen', filters: [{ name: 'P3D, OBJ, PAA, PBO und PAK', extensions: ['p3d', 'obj', 'paa', 'pac', 'pbo', 'pak', 'zip'] }], properties: ['openFile', 'multiSelections'] });
   return r.canceled ? [] : r.filePaths;
 });
 ipcMain.handle('a:pickFolder', async () => {
