@@ -1,5 +1,5 @@
 {
-  "version": "1.0.26",
+  "version": "1.0.27",
   "date": "2026-11-23",
-  "changelog": "🛠 Verbessert\n• Sehr große PAK-Archive (ZIP64, über 65 000 Dateien) werden unterstützt\n• Genauere Fehlermeldung bei unbekannten Archivformaten"
+  "changelog": "📦 Melonenkonverter 1.0.27\n\n✨ Neu\n• Enfusion-PAK (Arma Reforger) entpacken\n• Keine Größengrenze mehr: große Archive werden stückweise gelesen\n• Übersicht der Dateitypen im Archiv"
 }
