@@ -1495,13 +1495,30 @@ body.noxmas .snowcap::before{display:none}
     var eocd = -1;
     for (var i = u8.length - 22; i >= Math.max(0, u8.length - 65600); i--) if (u32(u8, i) === 0x06054b50) { eocd = i; break; }
     if (eocd < 0) throw new Error('ZIP-Verzeichnis nicht gefunden.');
-    var n = u16(u8, eocd + 10), cdOff = u32(u8, eocd + 16), p = cdOff, entries = [];
-    if (cdOff === 0xFFFFFFFF) throw new Error('Sehr große ZIP64-Archive werden nicht unterstützt.');
+    var n = u16(u8, eocd + 10), cdOff = u32(u8, eocd + 16), p, entries = [];
+    function u64(q) { return u32(u8, q) + u32(u8, q + 4) * 4294967296; }
+    // ZIP64 (sehr viele Dateien oder sehr groß)
+    if (eocd >= 20 && u32(u8, eocd - 20) === 0x07064b50) {
+      var z64 = u64(eocd - 12);
+      if (z64 + 56 <= u8.length && u32(u8, z64) === 0x06064b50) { n = u64(z64 + 32); cdOff = u64(z64 + 48); }
+    }
+    if (cdOff >= u8.length) throw new Error('ZIP-Verzeichnis liegt außerhalb der Datei.');
+    p = cdOff;
     for (i = 0; i < n; i++) {
       if (u32(u8, p) !== 0x02014b50) throw new Error('ZIP-Verzeichnis beschädigt.');
       var flags = u16(u8, p + 8), method = u16(u8, p + 10), csize = u32(u8, p + 20), usize = u32(u8, p + 24);
       var nl = u16(u8, p + 28), xl = u16(u8, p + 30), cl = u16(u8, p + 32), lho = u32(u8, p + 42);
       var name = utf8(u8.subarray(p + 46, p + 46 + nl));
+      // ZIP64-Zusatzfeld: echte Größen/Positionen
+      for (var xp = p + 46 + nl, xe = xp + xl; xp + 4 <= xe;) {
+        var id = u16(u8, xp), sz = u16(u8, xp + 2), q = xp + 4;
+        if (id === 1) {
+          if (usize === 0xFFFFFFFF) { usize = u64(q); q += 8; }
+          if (csize === 0xFFFFFFFF) { csize = u64(q); q += 8; }
+          if (lho === 0xFFFFFFFF) { lho = u64(q); q += 8; }
+        }
+        xp += 4 + sz;
+      }
       p += 46 + nl + xl + cl;
       if (/\/$/.test(name)) continue;
       (function (name, method, csize, usize, lho, flags) {
@@ -1546,8 +1563,14 @@ body.noxmas .snowcap::before{display:none}
       var e = new Error('Das ist ein Unreal-Engine-Paket. Diese sind meist verschlüsselt und speichern Modelle in einem eigenen Format (.uasset), das sich hier nicht zuverlässig lesen lässt. Nimm dafür das kostenlose Tool FModel (Modelle als GLB/OBJ, Texturen als PNG exportieren).');
       e.code = 'UNREAL'; throw e;
     }
-    try { return readZIP(u8); } catch (x) {}
-    throw new Error('Unbekanntes Archivformat. Unterstützt: PBO (Arma/DayZ), ZIP-basierte PAK, PACK.');
+    var zipErr = '';
+    try { return readZIP(u8); } catch (x) { zipErr = x.message; }
+    function hex(a, b) { var o = []; for (var i = a; i < b && i < u8.length; i++) o.push(('0' + u8[i].toString(16)).slice(-2)); return o.join(' '); }
+    var head = '', ascii = ''; for (var i = 0; i < 16 && i < u8.length; i++) ascii += (u8[i] >= 32 && u8[i] < 127) ? String.fromCharCode(u8[i]) : '.';
+    head = hex(0, 16);
+    var err = new Error('Unbekanntes Archivformat. Unterstützt: PBO (Arma/DayZ), ZIP-basierte PAK, PACK.' +
+      ' [Anfang: ' + head + ' „' + ascii + '“ · Ende: ' + hex(u8.length - 24, u8.length) + (zipErr ? ' · ZIP: ' + zipErr : '') + ']');
+    err.code = 'UNKNOWN'; throw err;
   }
 
   root.MKArc = { open: open };
