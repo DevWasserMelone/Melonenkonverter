@@ -1,5 +1,5 @@
 {
-  "version": "1.0.29",
+  "version": "1.0.32",
   "date": "2026-11-23",
-  "changelog": "✨ Melonenkonverter 1.0.29\n\n✨ Neu\n• Arma-Reforger-Modelle (.xob) öffnen und als OBJ speichern (Form, alle LODs)\n• XOB-Dateien aus Enfusion-PAKs werden beim Entpacken automatisch umgewandelt"
+  "changelog": ""
 }
